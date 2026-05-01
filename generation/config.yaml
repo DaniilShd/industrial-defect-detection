@@ -1,0 +1,48 @@
+# Конфигурация generation контейнера
+paths:
+  # Входные данные
+  train_csv: "data/sevestal/train.csv"
+  train_images_dir: "data/sevestal/train_images"
+  
+  # Выходные данные
+  defect_patches_dir: "data/processed/defect_patches"
+  clean_patches_dir: "data/processed/clean_patches"
+  balanced_defect_patches_dir: "data/processed/balanced_defect_patches"
+  balanced_clean_patches_dir: "data/processed/balanced_clean_patches"
+  reports_dir: "reports/patches"
+  yolo_images_subdir: "images/train"
+  yolo_labels_subdir: "labels/train"
+
+classes:
+  names:
+    1: "defect_type_1"
+    2: "defect_type_2"
+    3: "defect_type_3"
+    4: "defect_type_4"
+  colors:
+    1: "#FF6B6B"
+    2: "#4ECDC4"
+    3: "#45B7D1"
+    4: "#96CEB4"
+
+patch:
+  patch_size: 256
+  stride: 256
+  resize_to: 256
+  min_defect_area: 50
+  min_box_area: 10
+  reject_black: true
+  black_threshold: 30
+  max_black_ratio: 0.95
+  save_format: "png"
+
+split:
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  random_seed: 42
+
+report:
+  dpi: 150
+  figsize: [12, 8]
+  save_format: "png"
