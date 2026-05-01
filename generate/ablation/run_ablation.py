@@ -164,7 +164,9 @@ def main():
                 ltdetr_dir = run_dir / "ltdetr"
                 train_result = train_ltdetr(
                     data_yaml, ltdetr_dir,
-                    steps=ltdetr_cfg['steps'],
+                    max_steps=ltdetr_cfg['max_steps'],
+                    early_stopping_patience=ltdetr_cfg['early_stopping_patience'],
+                    val_every_steps=ltdetr_cfg['val_every_steps'],
                     lr=ltdetr_cfg['lr'],
                     batch_size=ltdetr_cfg['batch_size']
                 )
@@ -195,6 +197,7 @@ def main():
             
             finally:
                 torch.cuda.empty_cache()
+                shutil.rmtree(run_dir / "dataset", ignore_errors=True)  # ← вернуть
     
     # Итоги
     if all_results:

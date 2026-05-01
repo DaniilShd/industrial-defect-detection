@@ -9,11 +9,12 @@ experiment:
 # Фиксированные параметры обучения LT-DETR
 ltdetr:
   backbone: "frozen"
-  steps: 2000
+  max_steps: 7000                    # максимум (защита)
+  early_stopping_patience: 3         # остановка после 3 валидаций без улучшений
+  val_every_steps: 500               # валидация каждые 500 шагов
   lr: 0.0001
   batch_size: 8
-  val_every_steps: 500
-  image_size: 640    # ← добавить
+  image_size: 640
 
 # Пути к данным
 paths:

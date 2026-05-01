@@ -3,8 +3,7 @@ FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app:/app/utils:/app/scripts
+    PYTHONDONTWRITEBYTECODE=1
 
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
@@ -19,6 +18,7 @@ ENV PATH="/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir -U pip setuptools wheel
 
+# Сначала основные пакеты из PyPI
 RUN pip install --no-cache-dir \
     pandas \
     numpy \
@@ -29,17 +29,17 @@ RUN pip install --no-cache-dir \
     seaborn \
     scikit-learn \
     scikit-image \
-    pyyaml==6.0.1
+    pyyaml==6.0.1 \
+    Pillow \
+    transformers
 
-RUN mkdir -p /app/{scripts,utils,data,reports}
+# Потом torch отдельно из своего индекса
+RUN pip install --no-cache-dir \
+    torch torchvision \
+    --index-url https://download.pytorch.org/whl/cu118
+
+RUN mkdir -p /app
 
 WORKDIR /app
-
-# Исправлено: analysis, не generation
-COPY analysis/original/config.yaml /app/config.yaml
-COPY analysis/original/utils/ /app/utils/
-COPY analysis/original/scripts/ /app/scripts/
-
-VOLUME ["/app/data", "/app/reports"]
 
 CMD ["tail", "-f", "/dev/null"]

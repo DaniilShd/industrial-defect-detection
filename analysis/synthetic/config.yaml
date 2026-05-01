@@ -1,0 +1,92 @@
+# ============================================================
+# КОНФИГУРАЦИЯ АНАЛИЗА СИНТЕТИКИ
+# ============================================================
+
+# Пути
+paths:
+  synthetic_dir: "/app/data/results/ablation/abl_042_r0/synthetic"
+  original_dir: "/app/data/processed/balanced_defect_patches/train"
+  output_dir: "/app/analysis/synthetic/reports"
+  
+  # Поддиректории внутри output_dir
+  subdirs:
+    visualizations: "visualizations"
+    metrics: "metrics"
+    reports: "reports"
+    features: "features"
+
+# DINOv2 для domain gap анализа
+dinov2:
+  model_name: "facebook/dinov2-small"
+  device: "cuda"
+  batch_size: 32
+  num_samples: 500
+  nn_test_samples: 200
+  random_seed: 42
+  image_size: 256
+
+# Метрики качества изображений
+quality:
+  compute_psnr: true
+  compute_ssim: true
+  compute_fid: true
+  compute_lpips: false  # требует отдельной установки
+  num_samples_fid: 300
+  ssim_window_size: 11
+  fid_dims: 2048  # размерность эмбеддингов для FID
+
+# Анализ распределения классов
+class_analysis:
+  class_names:
+    0: "defect_type_1"
+    1: "defect_type_2"
+    2: "defect_type_3"
+    3: "defect_type_4"
+  num_classes: 4
+  compute_cooccurrence: true
+  compute_bbox_statistics: true
+
+# Визуализация
+visualization:
+  random_samples: 20
+  dpi: 150
+  figsize: [14, 10]
+  colormap: "viridis"
+  style: "whitegrid"
+  save_formats:
+    - "png"
+    - "pdf"
+  
+  # Настройки PCA
+  pca:
+    n_components: 2
+    max_points: 500
+    show_ellipses: true
+    
+  # Настройки t-SNE (дополнительно)
+  tsne:
+    enabled: true
+    perplexity: 30
+    n_iter: 1000
+    max_points: 300
+
+# Пороги для оценки качества synthetic
+thresholds:
+  domain_overlap:
+    excellent: 0.90
+    good: 0.75
+    satisfactory: 0.50
+    poor: 0.25
+  
+  fidelity:
+    ssim_excellent: 0.95
+    ssim_good: 0.85
+    psnr_excellent: 40.0
+    psnr_good: 30.0
+
+# Дополнительные анализы
+additional_analyses:
+  compute_color_histograms: true
+  compute_texture_analysis: true
+  compute_edge_density: true
+  compute_frequency_analysis: true

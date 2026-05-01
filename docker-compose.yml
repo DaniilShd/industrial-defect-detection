@@ -84,11 +84,21 @@ services:
       context: .
       dockerfile: analysis/Dockerfile
     container_name: analysis
+    runtime: nvidia
     environment:
-      - PYTHONPATH=/app:/app/analysis/original/utils:/app/analysis/original/scripts
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/app/cache/huggingface
+      - TRANSFORMERS_CACHE=/app/cache/huggingface
     volumes:
-      - ./data:/app/data:ro
-      - ./analysis:/app/analysis
+      - .:/app
+    shm_size: 8g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     working_dir: /app
     stdin_open: true
     tty: true
