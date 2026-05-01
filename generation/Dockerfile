@@ -39,7 +39,9 @@ RUN pip install --no-cache-dir \
     scipy==1.14.0 \
     matplotlib==3.8.0 \
     pyyaml==6.0.1 \ 
-    pandas
+    pandas \ 
+    seaborn \
+    scikit-learn
 
 RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu128
 

@@ -15,5 +15,19 @@ down:
 	docker compose down
 
 # Интерактивная оболочка
-shell_generate:
+shell-generate:
 	docker exec -it synthetic_generator /bin/bash
+
+shell-analysis:
+	docker exec -it analysis /bin/bash
+
+
+# # Дефектные патчи (по умолчанию)
+# python generation/scripts/05_visualize_bboxes.py --samples 20
+
+# # Сбалансированные дефектные
+# python generation/scripts/05_visualize_bboxes.py \
+#     --images data/processed/balanced_defect_patches/train/images \
+#     --labels data/processed/balanced_defect_patches/train/labels \
+#     --output generation/reports/patches/balanced_vis \
+#     --samples 50

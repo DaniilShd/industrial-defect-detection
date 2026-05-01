@@ -9,7 +9,7 @@ paths:
   clean_patches_dir: "data/processed/clean_patches"
   balanced_defect_patches_dir: "data/processed/balanced_defect_patches"
   balanced_clean_patches_dir: "data/processed/balanced_clean_patches"
-  reports_dir: "reports/patches"
+  reports_dir: "generation/reports/patches"
   yolo_images_subdir: "images/train"
   yolo_labels_subdir: "labels/train"
 
@@ -41,6 +41,9 @@ split:
   val_ratio: 0.15
   test_ratio: 0.15
   random_seed: 42
+  balance_multiplier: 2.0          # ×2 от миноритарного
+  clean_target_count: 2000          # целевое количество чистых
+  clean_n_clusters: 20              # кластеров для KMeans
 
 report:
   dpi: 150

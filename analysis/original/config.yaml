@@ -1,0 +1,49 @@
+paths:
+  train_csv: "data/sevestal/train.csv"
+  train_images_dir: "data/sevestal/train_images"
+  reports_dir: "analysis/original/reports"
+
+classes:
+  names:
+    1: "defect_type_1"
+    2: "defect_type_2"
+    3: "defect_type_3"
+    4: "defect_type_4"
+
+image:
+  width: 1600
+  height: 256
+  extensions: [".jpg", ".jpeg", ".png"]
+
+texture:
+  glcm_distances: [1, 2, 4, 8]
+  glcm_angles: [0, 45, 90, 135]
+  lbp_radius: 2
+  lbp_points: 16
+  gabor_frequencies: [0.1, 0.3, 0.5]
+  gabor_angles: [0, 45, 90, 135]
+
+color:
+  lab_channels: ["L", "a", "b"]
+  hsv_channels: ["h", "s", "v"]
+  hist_bins: 32
+
+brightness:
+  overexposure_threshold: 240
+  underexposure_threshold: 30
+  local_block_size: 64
+
+spectral:
+  fft_bands: 8
+  wavelet: "db2"
+  wavelet_level: 3
+
+cluster:
+  n_clusters: 10
+  sample_size: 2000
+  random_seed: 42
+
+report:
+  dpi: 150
+  figsize: [14, 10]
+  save_format: "png"

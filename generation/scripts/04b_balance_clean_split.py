@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Балансировка и разбиение чистых патчей с кластеризацией KMeans (70/15/15)."""
+"""Балансировка чистых патчей с кластеризацией KMeans (70/15/15)."""
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -10,8 +10,8 @@ import shutil
 import random
 from sklearn.cluster import KMeans
 from collections import defaultdict
-from utils import load_config, ensure_dir, print_section
 import logging
+from utils import load_config, ensure_dir, print_section
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ np.random.seed(cfg['split']['random_seed'])
 random.seed(cfg['split']['random_seed'])
 
 
-def extract_features(img_path: Path):
-    """Извлекает признаки изображения: среднее, std, гистограмма."""
+def extract_features(img_path: Path) -> np.ndarray:
+    """Извлечение признаков: среднее, std, гистограмма."""
     img = cv2.imread(str(img_path))
     if img is None:
         return None
@@ -36,8 +36,8 @@ def extract_features(img_path: Path):
     return np.concatenate([[mean_val, std_val], hist[:10]])
 
 
-def cluster_images(image_paths: list, n_clusters: int = 20):
-    """Кластеризует изображения по признакам."""
+def cluster_images(image_paths: list, n_clusters: int) -> dict:
+    """Кластеризация изображений по признакам."""
     logger.info("Извлечение признаков...")
     
     features = []
@@ -50,38 +50,36 @@ def cluster_images(image_paths: list, n_clusters: int = 20):
             valid_images.append(img_path)
     
     features = np.array(features)
-    logger.info(f"Проанализировано: {len(features)} изображений")
+    logger.info(f"Проанализировано: {len(features)}")
     
-    logger.info(f"Кластеризация (KMeans, n_clusters={n_clusters})...")
+    logger.info(f"KMeans (n_clusters={n_clusters})...")
     kmeans = KMeans(n_clusters=n_clusters, random_state=cfg['split']['random_seed'], n_init=10)
     clusters = kmeans.fit_predict(features)
     
-    cluster_images = defaultdict(list)
+    cluster_dict = defaultdict(list)
     for img_path, cluster in zip(valid_images, clusters):
-        cluster_images[cluster].append(img_path)
+        cluster_dict[cluster].append(img_path)
     
-    return cluster_images
+    return cluster_dict
 
 
-def select_balanced(images: list, target_count: int, n_clusters: int = 20):
-    """Равномерный отбор изображений из кластеров."""
+def select_balanced(images: list, target_count: int, n_clusters: int) -> list:
+    """Равномерный отбор из кластеров."""
     total = len(images)
     
     if total <= target_count:
-        logger.info(f"Изображений ({total}) меньше целевого ({target_count}), отбираем все")
+        logger.info(f"Изображений {total} ≤ {target_count}, отбираем все")
         return images
     
-    # Кластеризация
-    cluster_images = cluster_images(images, n_clusters)
-    logger.info(f"Кластеров: {len(cluster_images)}")
+    cluster_dict = cluster_images(images, n_clusters)
+    logger.info(f"Кластеров: {len(cluster_dict)}")
     
-    # Равномерный отбор
     per_cluster = target_count // n_clusters
     remainder = target_count % n_clusters
     
     selected = []
     for cluster_id in range(n_clusters):
-        available = cluster_images[cluster_id]
+        available = cluster_dict[cluster_id]
         to_select = min(per_cluster + (1 if cluster_id < remainder else 0), len(available))
         selected.extend(random.sample(available, to_select))
     
@@ -89,10 +87,9 @@ def select_balanced(images: list, target_count: int, n_clusters: int = 20):
     return selected
 
 
-def split_and_copy(images: list, out_dir: Path):
-    """Разбиение 70/15/15 и копирование."""
+def split_and_copy(images: list, out_dir: Path) -> dict:
+    """Разбиение и копирование."""
     sp = cfg['split']
-    
     random.shuffle(images)
     
     total = len(images)
@@ -105,7 +102,6 @@ def split_and_copy(images: list, out_dir: Path):
         'test': images[val_end:]
     }
     
-    # Очистка и копирование
     if out_dir.exists():
         shutil.rmtree(out_dir)
     
@@ -116,56 +112,51 @@ def split_and_copy(images: list, out_dir: Path):
             if dst.exists():
                 dst = split_dir / f"{img_path.stem}_dup{img_path.suffix}"
             shutil.copy2(img_path, dst)
-        
-        logger.info(f"  {split_name}: {len(split_images)} изображений")
+        logger.info(f"  {split_name}: {len(split_images)}")
     
     return splits
 
 
 def main():
-    print_section("БАЛАНСИРОВКА ЧИСТЫХ ПАТЧЕЙ (70/15/15) С КЛАСТЕРИЗАЦИЕЙ")
+    print_section("БАЛАНСИРОВКА ЧИСТЫХ ПАТЧЕЙ С КЛАСТЕРИЗАЦИЕЙ")
     
     p = cfg['paths']
+    sp = cfg['split']
+    
     src_dir = Path(p['clean_patches_dir'])
     out_dir = Path(p['balanced_clean_patches_dir'])
     
-    # Поиск всех изображений
     all_images = []
     for ext in ['*.png', '*.jpg', '*.jpeg']:
         all_images.extend(src_dir.rglob(ext))
     
-    logger.info(f"Найдено изображений: {len(all_images):,}")
+    logger.info(f"Найдено: {len(all_images):,}")
     
     if not all_images:
         logger.error("Изображения не найдены!")
         return
     
     # Отбор с кластеризацией
-    TARGET_COUNT = 2000
-    n_clusters = 20
+    target = sp.get('clean_target_count', 2000)
+    n_clusters = sp.get('clean_n_clusters', 20)
     
-    selected = select_balanced(all_images, TARGET_COUNT, n_clusters)
-    
-    # Разбиение и копирование
+    selected = select_balanced(all_images, target, n_clusters)
     splits = split_and_copy(selected, out_dir)
     
-    # Итог
     total = sum(len(v) for v in splits.values())
     
-    print(f"\n{'='*50}")
-    print("ГОТОВО!")
-    print(f"{'='*50}")
     print(f"""
+{'='*50}
+ГОТОВО!
+{'='*50}
 ✅ ОТОБРАНО: {total} чистых патчей
 
-📁 ВЫХОДНАЯ ПАПКА: {out_dir}
-   ├── train/ ({len(splits['train'])} изображений)
-   ├── val/   ({len(splits['val'])} изображений)
-   └── test/  ({len(splits['test'])} изображений)
+📁 ВЫХОД: {out_dir}
+   ├── train/ ({len(splits['train'])})
+   ├── val/   ({len(splits['val'])})
+   └── test/  ({len(splits['test'])})
 
-📊 РАЗБИЕНИЕ: {cfg['split']['train_ratio']*100:.0f}/"""
-          f"""{cfg['split']['val_ratio']*100:.0f}/"""
-          f"""{cfg['split']['test_ratio']*100:.0f}
+📊 РАЗБИЕНИЕ: {sp['train_ratio']*100:.0f}/{sp['val_ratio']*100:.0f}/{sp['test_ratio']*100:.0f}
 """)
     
     logger.info(f"✅ Готово: {out_dir}")

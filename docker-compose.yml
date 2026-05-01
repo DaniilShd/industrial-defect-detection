@@ -35,3 +35,21 @@ services:
     working_dir: /app
     stdin_open: true
     tty: true
+
+  # ============================================
+  # Анализ оригинальных изображений
+  # ============================================
+  analysis:
+    build:
+      context: .
+      dockerfile: analysis/Dockerfile
+    container_name: analysis
+    environment:
+      - PYTHONPATH=/app:/app/analysis/original/utils:/app/analysis/original/scripts
+    volumes:
+      - ./data:/app/data:ro        # read-only исходные данные
+      - ./analysis:/app/analysis   # скрипты + конфиг
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Анализ дефектных патчей: распределения, размеры, совместное присутствие."""
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -32,8 +33,9 @@ def load_data():
 
 
 def class_stats(annotations):
-    class_counts = defaultdict(int)
-    patches_per_class = defaultdict(set)
+    """Статистика: боксы, патчи, совместное присутствие."""
+    class_counts = defaultdict(int)       # боксов на класс
+    patches_per_class = defaultdict(set)  # патчей с каждым классом
     boxes_per_patch = []
     total = 0
     
@@ -58,6 +60,75 @@ def class_stats(annotations):
     return class_counts, patches_per_class, total, boxes_per_patch
 
 
+def plot_pie_patches_per_class(patches_per_class: dict, names: list, rpt: Path):
+    """Круговая диаграмма: количество патчей с каждым классом."""
+    cls_ids = sorted(patches_per_class.keys())
+    sizes = [len(patches_per_class[c]) for c in cls_ids]
+    labels = [names[c] if c < len(names) else f"Cls_{c}" for c in cls_ids]
+    colors_pie = [cfg['classes']['colors'].get(c + 1, '#333') for c in cls_ids]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # Pie chart
+    wedges, texts, autotexts = axes[0].pie(
+        sizes, labels=labels, autopct='%1.1f%%',
+        colors=colors_pie, textprops={'fontsize': 11}
+    )
+    axes[0].set_title('Доля патчей, содержащих класс', fontweight='bold')
+    
+    # Bar chart
+    bars = axes[1].bar(labels, sizes, color=colors_pie)
+    axes[1].set_title('Патчей с классом', fontweight='bold')
+    axes[1].set_ylabel('Количество патчей')
+    axes[1].tick_params(axis='x', rotation=45)
+    for bar, v in zip(bars, sizes):
+        axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(sizes)*0.01,
+                     str(v), ha='center', fontweight='bold')
+    
+    plt.suptitle('Распределение патчей по классам', fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    save_figure(fig, "patches_per_class_pie.png", rpt, cfg['report']['dpi'])
+    plt.close()
+    logger.info(f"Круговая диаграмма сохранена: {rpt / 'patches_per_class_pie.png'}")
+
+
+def plot_cooccurrence(patches_per_class: dict, names: list, rpt: Path):
+    """Тепловая карта совместного присутствия классов."""
+    cls_ids = sorted(patches_per_class.keys())
+    n = len(cls_ids)
+    labels = [names[c] if c < len(names) else f"Cls_{c}" for c in cls_ids]
+    
+    # Матрица пересечений
+    matrix = np.zeros((n, n))
+    for i, ci in enumerate(cls_ids):
+        for j, cj in enumerate(cls_ids):
+            if i == j:
+                matrix[i][j] = len(patches_per_class[ci])
+            else:
+                matrix[i][j] = len(patches_per_class[ci] & patches_per_class[cj])
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(matrix, cmap='YlOrRd', aspect='auto')
+    
+    ax.set_xticks(range(n))
+    ax.set_xticklabels(labels)
+    ax.set_yticks(range(n))
+    ax.set_yticklabels(labels)
+    
+    # Цифры в ячейках
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, f'{matrix[i][j]:.0f}', ha='center', va='center',
+                    color='white' if matrix[i][j] > matrix.max()/2 else 'black')
+    
+    plt.colorbar(im, ax=ax)
+    ax.set_title('Совместное присутствие классов в патчах', fontweight='bold')
+    plt.tight_layout()
+    save_figure(fig, "class_cooccurrence.png", rpt, cfg['report']['dpi'])
+    plt.close()
+    logger.info(f"Тепловая карта сохранена: {rpt / 'class_cooccurrence.png'}")
+
+
 def main():
     print_section("АНАЛИЗ ДЕФЕКТНЫХ ПАТЧЕЙ")
     
@@ -65,25 +136,31 @@ def main():
     ann, ds = load_data()
     class_counts, ppc, total, bpp = class_stats(ann)
     names = ds['names']
-    colors = [cfg['classes']['colors'].get(i + 1, '#333') for i in sorted(class_counts)]
+    colors_hex = [cfg['classes']['colors'].get(i + 1, '#333') for i in sorted(class_counts)]
     
     logger.info(f"Патчей: {len(ann)}, Боксов: {total}")
     
-    # Распределение
+    # 1. Распределение боксов по классам (bar)
     fig, ax = plt.subplots(figsize=cfg['report']['figsize'])
     cls_ids = sorted(class_counts)
     x = range(len(cls_ids))
-    ax.bar(x, [class_counts[i] for i in cls_ids], color=colors)
+    ax.bar(x, [class_counts[i] for i in cls_ids], color=colors_hex)
     ax.set_xticks(x)
     ax.set_xticklabels([names[i] if i < len(names) else f"Cls_{i}" for i in cls_ids], rotation=45)
     ax.set_title('Боксы по классам')
     for i, v in enumerate([class_counts[c] for c in cls_ids]):
         ax.text(i, v + max(class_counts.values()) * 0.01, str(v), ha='center', fontweight='bold')
     plt.tight_layout()
-    save_figure(fig, "class_distribution.png", rpt, cfg['report']['dpi'])
+    save_figure(fig, "boxes_per_class.png", rpt, cfg['report']['dpi'])
     plt.close()
     
-    # Размеры дефектов
+    # 2. Круговая диаграмма патчей по классам (НОВОЕ)
+    plot_pie_patches_per_class(ppc, names, rpt)
+    
+    # 3. Тепловая карта совместного присутствия (НОВОЕ)
+    plot_cooccurrence(ppc, names, rpt)
+    
+    # 4. Размеры дефектов
     box_sizes = defaultdict(list)
     base = Path(cfg['paths']['defect_patches_dir']) / cfg['paths']['yolo_labels_subdir']
     for a in ann:
@@ -114,16 +191,21 @@ def main():
     save_figure(fig, "defect_sizes.png", rpt, cfg['report']['dpi'])
     plt.close()
     
-    # Вывод
-    print(f"\nКласс | Боксов | Патчей | Боксов/патч")
+    # 5. Текстовый вывод
+    print(f"\n{'Класс':<15} {'Боксов':<8} {'Патчей':<8} {'Боксов/патч':<12}")
     print("-" * 45)
     for cls in sorted(class_counts):
         name = names[cls] if cls < len(names) else f"Cls_{cls}"
         cnt = class_counts[cls]
         n_patches = len(ppc[cls])
-        print(f"{name:<15} {cnt:<7} {n_patches:<7} {cnt/n_patches:.2f}" if n_patches else f"{name:<15} {cnt:<7} {n_patches:<7} -")
+        avg = cnt / n_patches if n_patches else 0
+        print(f"{name:<15} {cnt:<8} {n_patches:<8} {avg:.2f}")
     
-    logger.info(f"Отчёты: {rpt}")
+    logger.info(f"✅ Все отчёты: {rpt}")
+    logger.info(f"  - boxes_per_class.png")
+    logger.info(f"  - patches_per_class_pie.png")
+    logger.info(f"  - class_cooccurrence.png")
+    logger.info(f"  - defect_sizes.png")
 
 
 if __name__ == "__main__":
