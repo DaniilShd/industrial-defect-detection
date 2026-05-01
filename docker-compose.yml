@@ -1,9 +1,46 @@
+# docker-compose.yml
+
 services:
-  synthetic:
+  # ============================================
+  # Обработка данных (подготовка патчей)
+  # ============================================
+  processed:
     build:
       context: .
-      dockerfile: generation/Dockerfile
-    container_name: synthetic_generator
+      dockerfile: processed/Dockerfile
+    container_name: processed
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONPATH=/app:/app/utils:/app/scripts
+    volumes:
+      - ./data:/app/data
+      - ./processed/scripts:/app/scripts
+      - ./processed/utils:/app/utils
+      - ./processed/config.yaml:/app/config.yaml:ro
+      - ./processed/reports:/app/reports
+      - ./download_data:/app/download_data:ro
+    shm_size: 8g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
+
+  # ============================================
+  # Генерация синтетических данных
+  # ============================================
+  generate:
+    build:
+      context: .
+      dockerfile: generate/Dockerfile
+    container_name: generate
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -12,16 +49,18 @@ services:
       - TRANSFORMERS_CACHE=/app/cache/huggingface
       - TORCH_HOME=/app/cache/torch
       - CUDA_VISIBLE_DEVICES=0
-      # Оптимизация под RTX 5070 Ti
       - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
       - OMP_NUM_THREADS=8
+      - PYTHONPATH=/app:/app/scripts:/app/utils
     volumes:
-      - ./data:/app/data              # входные реальные изображения
-      - ./results:/app/results        # выходная синтетика
-      - ./generation:/app/generation  # скрипты генерации
-      - ./cache:/app/cache            # кеш HF и torch
-      - ./download_data:/app/download_data
-    shm_size: 16g                     # важно для DataLoader
+      - ./data:/app/data
+      - ./generate/config.yaml:/app/config.yaml:ro
+      - ./generate/scripts:/app/scripts
+      - ./generate:/app/generate
+      - ./cache:/app/cache
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+    shm_size: 16g
     deploy:
       resources:
         reservations:
@@ -35,9 +74,10 @@ services:
     working_dir: /app
     stdin_open: true
     tty: true
+    command: tail -f /dev/null
 
   # ============================================
-  # Анализ оригинальных изображений
+  # Анализ изображений
   # ============================================
   analysis:
     build:
@@ -47,8 +87,8 @@ services:
     environment:
       - PYTHONPATH=/app:/app/analysis/original/utils:/app/analysis/original/scripts
     volumes:
-      - ./data:/app/data:ro        # read-only исходные данные
-      - ./analysis:/app/analysis   # скрипты + конфиг
+      - ./data:/app/data:ro
+      - ./analysis:/app/analysis
     working_dir: /app
     stdin_open: true
     tty: true

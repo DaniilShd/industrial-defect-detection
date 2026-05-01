@@ -1,0 +1,106 @@
+# ============================================================
+# ABLATION STUDY — СЕТКА ГИПЕРПАРАМЕТРОВ
+# ============================================================
+
+experiment:
+  name: "ablation_synthetic"
+  description: "Поиск оптимальных параметров генерации синтетики (дефект + фон)"
+
+# Фиксированные параметры обучения LT-DETR
+ltdetr:
+  backbone: "frozen"
+  steps: 2000
+  lr: 0.0001
+  batch_size: 8
+  val_every_steps: 500
+  image_size: 640    # ← добавить
+
+# Пути к данным
+paths:
+  real_train: "/app/data/processed/balanced_defect_patches/train"
+  real_val: "/app/data/processed/balanced_defect_patches/val"
+  real_test: "/app/data/processed/balanced_defect_patches/test"
+  results_dir: "/app/data/results/ablation"
+
+# ============================================================
+# СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
+# ============================================================
+grid:
+  # --- Параметры SD для дефекта ---
+  sd_defect_strength:
+    - 0.25      # умеренные изменения
+    - 0.35      # заметные изменения
+    - 0.45      # сильные изменения
+
+  # --- Параметры SD для фона ---
+  sd_background_strength:
+    - 0.15      # лёгкая вариативность фона
+    - 0.25      # высокая вариативность
+
+  # --- Инжекция высоких частот (текстура металла) ---
+  high_freq_alpha:
+    - 0.2       # слабая — меньше текстуры
+    - 0.4       # сильная — больше текстуры
+
+  # --- Размер синтетического датасета ---
+  synthetic_total:
+    - 500
+    - 1500
+
+  # --- Стратегия балансировки классов ---
+  balance_strategy:
+    - "proportional"      # повторяет дисбаланс оригинала
+    # - "minority_boost"    # только минорные классы (1, 2, 3)
+
+  repeats: 2
+  
+  # Всего: 3 × 2 × 2 × 2 × 2 × 2 = 96 запусков
+
+# ============================================================
+# ФИКСИРОВАННЫЕ ПАРАМЕТРЫ ГЕНЕРАЦИИ
+# ============================================================
+fixed_generation:
+  variants: 3
+  random_seed: 42
+  sd_steps: 20
+  sd_guidance_scale: 1.8
+  bg_sd_steps: 20
+  bg_guidance_scale: 1.5
+  
+  # Промпты
+  defect_prompt: "metal surface defect, scratch, industrial steel texture, metallic sheen, brushed metal"
+  defect_negative: "smooth, plastic, wood, rust, glass, organic, painted, colorful, rainbow, vibrant"
+  background_prompt: "industrial steel surface, brushed metal texture, metallic sheen, uniform metal"
+  background_negative: "defect, scratch, crack, dent, damage, rust, colorful, rainbow, vibrant"
+  
+  # Color correction
+  defect_color_correction: 0.85
+  background_color_correction: 0.6
+  defect_consistency: 0.8
+  
+  # Спектральный контроль
+  use_spectrum_matching: true
+  use_high_freq_injection: true
+  
+  # Масштабирование
+  scale_factors:
+    - [1.05, 1.0]
+    - [1.0, 1.05]
+    - [1.1, 1.0]
+    - [1.0, 1.1]
+    - [1.15, 1.0]
+    - [1.0, 1.15]
+    - [1.1, 1.05]
+    - [1.05, 1.1]
+    - [1.2, 1.0]
+    - [1.0, 1.2]
+    - [1.15, 1.15]
+    - [1.3, 1.0]
+    - [1.0, 1.3]
+    - [1.05, 1.05]
+    - [1.1, 1.1]
+
+# MLflow
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "ablation_synthetic"

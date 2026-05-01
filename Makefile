@@ -15,11 +15,14 @@ down:
 	docker compose down
 
 # Интерактивная оболочка
-shell-generate:
-	docker exec -it synthetic_generator /bin/bash
+shell-processed:
+	docker exec -it processed /bin/bash
 
 shell-analysis:
 	docker exec -it analysis /bin/bash
+
+shell-generate:
+	docker exec -it generate /bin/bash
 
 
 # # Дефектные патчи (по умолчанию)
