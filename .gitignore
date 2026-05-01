@@ -1,0 +1,65 @@
+# Cache directories
+cache/
+cache/huggingface/
+cache/matplotlib/
+
+# Data directories (игнорируем данные, кроме структуры)
+data/
+cache/
+
+
+# Models (обученные модели весят много)
+models/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.onnx
+*.bin
+
+# Results (результаты экспериментов)
+results/
+results/defective_dataset/
+results/final_dataset/
+results/synthetic_backgrounds/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+venv/
+env/
+ENV/
+.venv
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker (игнорируем собранные образы, но не Dockerfile)
+docker/*.tar
+docker/*.img
+
+# Logs
+*.log
+logs/
+
+# Configuration with secrets
+configs/*.secret.yaml
+configs/*.local.yaml
+*.key
+*.pem
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
