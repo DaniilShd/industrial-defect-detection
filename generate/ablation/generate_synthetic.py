@@ -20,11 +20,6 @@ def generate_synthetic_dataset(
     real_train_dir: Path,
     rle_csv: Path,
 ) -> int:
-    """
-    Генерация синтетического датасета.
-    run_params — перебираемые параметры (сетка).
-    fixed_params — фиксированные для всех запусков.
-    """
     config = Config()
     
     # === Перебираемые параметры ===
@@ -36,11 +31,10 @@ def generate_synthetic_dataset(
     
     config.spectral.high_freq_alpha = run_params['high_freq_alpha']
     
-    config.generation.synthetic_total = run_params['synthetic_total']
+    config.generation.variants = run_params['variants']
     config.generation.balance_strategy = run_params['balance_strategy']
     
     # === Фиксированные параметры ===
-    config.generation.variants = fixed_params['variants']
     config.generation.random_seed = fixed_params['random_seed']
     
     config.sd_defect.steps = fixed_params['sd_steps']
@@ -66,7 +60,7 @@ def generate_synthetic_dataset(
     config.paths.rle_csv = str(rle_csv)
     config.paths.output_dir = str(synthetic_output_dir)
     
-    logger.info(f"Generating {run_params['synthetic_total']} images:")
+    logger.info(f"Generating with variants={run_params['variants']}:")
     logger.info(f"  defect_strength={run_params['sd_defect_strength']}, "
                 f"bg_strength={run_params['sd_background_strength']}, "
                 f"hf_alpha={run_params['high_freq_alpha']}, "

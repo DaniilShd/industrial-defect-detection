@@ -1,4 +1,3 @@
-# generate/Dockerfile
 FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -19,16 +18,17 @@ ENV PATH="/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir -U pip setuptools wheel
 
+# Фиксированные версии для совместимости diffusers + lightly_train
 RUN pip install --no-cache-dir \
     huggingface_hub==0.20.3 \
-    tokenizers==0.15.2
+    tokenizers==0.15.2 \
+    transformers==4.36.0
 
 RUN pip install --no-cache-dir torch torchvision \
     --index-url https://download.pytorch.org/whl/cu128
 
 RUN pip install --no-cache-dir \
     diffusers==0.25.0 \
-    transformers==4.36.0 \
     accelerate==0.25.0 \
     peft==0.10.0 \
     safetensors==0.4.5 \
@@ -43,6 +43,10 @@ RUN pip install --no-cache-dir \
     mlflow>=2.0.0
 
 RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu128
+
+# Lightly и lightly_train — отдельно, без обновления huggingface_hub
+RUN pip install --no-cache-dir --no-deps lightly
+RUN pip install --no-cache-dir --no-deps lightly_train
 
 RUN mkdir -p /app/{scripts,utils,data,cache,mlruns}
 

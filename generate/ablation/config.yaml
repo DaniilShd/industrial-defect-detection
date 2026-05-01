@@ -9,9 +9,9 @@ experiment:
 # Фиксированные параметры обучения LT-DETR
 ltdetr:
   backbone: "frozen"
-  max_steps: 7000                    # максимум (защита)
-  early_stopping_patience: 3         # остановка после 3 валидаций без улучшений
-  val_every_steps: 500               # валидация каждые 500 шагов
+  max_steps: 7000
+  early_stopping_patience: 3
+  val_every_steps: 500
   lr: 0.0001
   batch_size: 8
   image_size: 640
@@ -27,63 +27,52 @@ paths:
 # СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
 # ============================================================
 grid:
-  # --- Параметры SD для дефекта ---
   sd_defect_strength:
-    - 0.25      # умеренные изменения
-    - 0.35      # заметные изменения
-    - 0.45      # сильные изменения
+    - 0.08
+    - 0.15
+    - 0.25
 
-  # --- Параметры SD для фона ---
   sd_background_strength:
-    - 0.15      # лёгкая вариативность фона
-    - 0.25      # высокая вариативность
+    - 0.05
+    - 0.12
 
-  # --- Инжекция высоких частот (текстура металла) ---
   high_freq_alpha:
-    - 0.2       # слабая — меньше текстуры
-    - 0.4       # сильная — больше текстуры
+    - 0.2
+    - 0.4
 
-  # --- Размер синтетического датасета ---
-  synthetic_total:
-    - 500
-    - 1500
+  variants:
+    - 1
+    - 3
 
-  # --- Стратегия балансировки классов ---
   balance_strategy:
-    - "proportional"      # повторяет дисбаланс оригинала
-    # - "minority_boost"    # только минорные классы (1, 2, 3)
+    - "proportional"
 
-  repeats: 2
+  repeats: 1
   
-  # Всего: 3 × 2 × 2 × 2 × 2 × 2 = 96 запусков
+  # Всего: 3 × 2 × 2 × 2 × 1 × 2 = 48 запусков
 
 # ============================================================
 # ФИКСИРОВАННЫЕ ПАРАМЕТРЫ ГЕНЕРАЦИИ
 # ============================================================
 fixed_generation:
-  variants: 3
   random_seed: 42
   sd_steps: 20
   sd_guidance_scale: 1.8
   bg_sd_steps: 20
   bg_guidance_scale: 1.5
   
-  # Промпты
   defect_prompt: "metal surface defect, scratch, industrial steel texture, metallic sheen, brushed metal"
   defect_negative: "smooth, plastic, wood, rust, glass, organic, painted, colorful, rainbow, vibrant"
   background_prompt: "industrial steel surface, brushed metal texture, metallic sheen, uniform metal"
   background_negative: "defect, scratch, crack, dent, damage, rust, colorful, rainbow, vibrant"
   
-  # Color correction
   defect_color_correction: 0.85
   background_color_correction: 0.6
   defect_consistency: 0.8
   
-  # Спектральный контроль
   use_spectrum_matching: true
   use_high_freq_injection: true
   
-  # Масштабирование
   scale_factors:
     - [1.05, 1.0]
     - [1.0, 1.05]

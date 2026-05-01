@@ -43,6 +43,7 @@ services:
     container_name: generate
     runtime: nvidia
     environment:
+      - PYTHONPATH=/app:/app/scripts:/app/utils:/app/generate/scripts
       - NVIDIA_VISIBLE_DEVICES=all
       - HF_HOME=/app/cache/huggingface
       - HUGGINGFACE_HUB_CACHE=/app/cache/huggingface
@@ -55,8 +56,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./generate/config.yaml:/app/config.yaml:ro
-      - ./generate/scripts:/app/scripts
       - ./generate:/app/generate
+      - ./generate/scripts:/app/scripts           # ← мапим generate/scripts как /app/scripts
+      - ./generate/utils:/app/utils               # ← мапим generate/utils как /app/utils
       - ./cache:/app/cache
       - ./mlruns:/app/mlruns
       - ./mlflow.db:/app/mlflow.db
@@ -153,3 +155,16 @@ services:
     stdin_open: true
     tty: true
     command: tail -f /dev/null
+
+
+  mlflow:
+    image: python:3.10-slim
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+    working_dir: /app
+    command: >
+      bash -c "pip install mlflow &&
+               mlflow ui --host 0.0.0.0 --port 5000"

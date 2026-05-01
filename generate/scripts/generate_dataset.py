@@ -188,8 +188,8 @@ class PoissonDefectGenerator:
             return None
     
     def generate_dataset(self, input_dir: Path, rle_csv: Path,
-                        output_dir: Path, variants: int = 3,
-                        limit: Optional[int] = None) -> int:
+                    output_dir: Path, variants: int = 3,
+                    limit: Optional[int] = None) -> int:
         (output_dir / "images").mkdir(parents=True, exist_ok=True)
         (output_dir / "labels").mkdir(parents=True, exist_ok=True)
         
@@ -199,6 +199,12 @@ class PoissonDefectGenerator:
         logger.info(f"Найдено патчей: {len(groups)}")
         logger.info(f"  С несколькими дефектами: {(groups.size() > 1).sum()}")
         
+        # Перемешиваем патчи для честной выборки при limit
+        image_ids = list(groups.groups.keys())
+        rng = random.Random(self.config.generation.random_seed)
+        rng.shuffle(image_ids)
+        logger.info(f"Патчи перемешаны (seed={self.config.generation.random_seed})")
+        
         all_images = {}
         for ext in ['*.png', '*.jpg', '*.jpeg']:
             for img in input_dir.glob(ext):
@@ -207,10 +213,11 @@ class PoissonDefectGenerator:
         
         stats = {'total': 0, 'errors': 0, 'defects': 0}
         
-        for image_id, group in tqdm(groups, desc="SD bg + SD defect + Scale"):
+        for image_id in tqdm(image_ids, desc="SD bg + SD defect + Scale"):
             if limit and stats['total'] >= limit:
                 break
             
+            group = groups.get_group(image_id)
             img_path = all_images.get(image_id)
             if img_path is None:
                 logger.warning(f"Изображение не найдено: {image_id}")
@@ -221,7 +228,6 @@ class PoissonDefectGenerator:
                 rle = row.get('EncodedPixels')
                 if pd.isna(rle) or str(rle).strip().lower() in ['', 'nan']:
                     continue
-                # RLE уже для патча 256x256, смещение не нужно
                 all_bboxes.extend(
                     rle_to_defect_bboxes(str(rle), int(row['ClassId']) - 1)
                 )
@@ -247,5 +253,5 @@ class PoissonDefectGenerator:
                     torch.cuda.empty_cache()
         
         logger.info(f"Итого: {stats['total']} изображений, "
-                   f"{stats['defects']} дефектов, {stats['errors']} ошибок")
+                f"{stats['defects']} дефектов, {stats['errors']} ошибок")
         return stats['total']

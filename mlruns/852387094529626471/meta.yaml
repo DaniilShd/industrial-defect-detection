@@ -1,0 +1,8 @@
+artifact_location: file:///app/mlruns/852387094529626471
+creation_time: 1777664940668
+experiment_id: '852387094529626471'
+last_update_time: 1777664940668
+lifecycle_stage: active
+name: ablation_synthetic
+trace_location: null
+workspace: default

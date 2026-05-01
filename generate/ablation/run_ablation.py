@@ -39,7 +39,7 @@ def get_combinations(grid: dict) -> list:
         'sd_defect_strength',
         'sd_background_strength',
         'high_freq_alpha',
-        'synthetic_total',
+        'variants',
         'balance_strategy'
     ]
     values = [grid[k] for k in keys]
@@ -206,7 +206,7 @@ def main():
         logger.info(f"  defect_strength={best.get('sd_defect_strength', '?')}, "
                    f"bg_strength={best.get('sd_background_strength', '?')}, "
                    f"hf_alpha={best.get('high_freq_alpha', '?')}, "
-                   f"n={best.get('synthetic_total', '?')}, "
+                   f"variants={best.get('variants', '?')}, "
                    f"bal={best.get('balance_strategy', '?')}")
         
         summary_path = results_base / "summary.json"
