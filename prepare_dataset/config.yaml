@@ -1,0 +1,140 @@
+# ============================================================
+# КОНФИГУРАЦИЯ ПОДГОТОВКИ ДАННЫХ ДЛЯ ЭКСПЕРИМЕНТА
+# ============================================================
+
+experiment:
+  name: "dataset_preparation"
+  description: "Подготовка датасетов для сравнения синтетики vs аугментации"
+  seed: 42
+
+# ============================================================
+# ПУТИ
+# ============================================================
+paths:
+  # Входные данные
+  real_dataset: "/app/data/processed/balanced_defect_patches"  # train/val/test
+  best_synthetic: "/app/data/results/ablation/best_synthetic"  # только train
+  
+  # Выходные данные
+  output_dir: "/app/data/experiment"  # Все датасеты здесь
+
+# ============================================================
+# ПАРАМЕТРЫ ИЗОБРАЖЕНИЙ
+# ============================================================
+image:
+  target_size: [640, 640]
+  format: "jpg"
+  jpeg_quality: 95
+
+# ============================================================
+# YOLO РАЗМЕТКА
+# ============================================================
+yolo:
+  num_classes: 4
+  class_names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+# ============================================================
+# АУГМЕНТАЦИЯ (единая для всех)
+# ============================================================
+augmentation:
+  horizontal_flip: 0.5
+  
+  brightness_contrast:
+    brightness: 0.15
+    contrast: 0.15
+    p: 0.6
+  
+  hue_saturation:
+    hue: 5
+    saturation: 10
+    value: 10
+    p: 0.3
+  
+  affine:
+    scale: [0.98, 1.02]
+    translate: [-0.02, 0.02]
+    rotate: [-1, 1]
+    p: 0.2
+  
+  gauss_noise:
+    var_min: 5.0
+    var_max: 15.0
+    p: 0.2
+  
+  motion_blur:
+    blur_limit: 3
+    p: 0.15
+  
+  # Аугментация применяется 1 раз к каждому изображению
+  copies_per_image: 1
+
+# ============================================================
+# КОНФИГУРАЦИИ ДАТАСЕТОВ ДЛЯ ЭКСПЕРИМЕНТА
+# ============================================================
+# N = количество изображений в real/train
+# Синтетика генерируется в том же количестве N
+# Все датасеты кроме baseline и mixed имеют размер 2N
+# ============================================================
+
+datasets:
+  # 1. Baseline — только реальные данные
+  real_baseline:
+    train:
+      - source: "real/train"
+    val: "real/val"
+    test: "real/test"
+    size: "N"
+    description: "Только реальные данные (нижняя граница)"
+
+  # 2. Реальные + аугментированные реальные
+  real_augmented:
+    train:
+      - source: "real/train"
+      - source: "real_augmented/train"
+    val: "real/val"
+    test: "real/test"
+    size: "2N"
+    description: "Реальные данные + их аугментации"
+
+  # 3. Только синтетика + аугментированная синтетика
+  synthetic_full:
+    train:
+      - source: "synthetic/train"
+      - source: "synthetic_augmented/train"
+    val: "real/val"
+    test: "real/test"
+    size: "2N"
+    description: "Только синтетические данные (сырые + аугментированные)"
+
+  # 4. Реальные + аугментированная синтетика (КЛЮЧЕВОЕ СРАВНЕНИЕ)
+  real_plus_synthetic_aug:
+    train:
+      - source: "real/train"
+      - source: "synthetic_augmented/train"
+    val: "real/val"
+    test: "real/test"
+    size: "2N"
+    description: "Реальные данные + аугментированная синтетика (замена real_aug на synthetic_aug)"
+
+  # 5. Полный микс (синергия)
+  mixed_full:
+    train:
+      - source: "real/train"
+      - source: "real_augmented/train"
+      - source: "synthetic/train"
+      - source: "synthetic_augmented/train"
+    val: "real/val"
+    test: "real/test"
+    size: "4N"
+    description: "Все данные вместе (поиск синергии)"
+
+# ============================================================
+# MLflow
+# ============================================================
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "dataset_preparation"

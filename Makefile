@@ -24,6 +24,9 @@ shell-analysis:
 shell-generate:
 	docker exec -it generate /bin/bash
 
+shell-prepare_dataset:
+	docker exec -it prepare_dataset /bin/bash
+
 
 # # Дефектные патчи (по умолчанию)
 # python generation/scripts/05_visualize_bboxes.py --samples 20

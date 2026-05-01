@@ -103,3 +103,53 @@ services:
     stdin_open: true
     tty: true
     command: tail -f /dev/null
+
+    # ============================================
+  # Подготовка датасетов для эксперимента
+  # ============================================
+  prepare_dataset:
+    build:
+      context: .
+      dockerfile: prepare_dataset/Dockerfile
+    container_name: prepare_dataset
+    environment:
+      - PYTHONPATH=/app:/app/scripts:/app/utils
+    volumes:
+      - ./data:/app/data
+      - ./prepare_dataset/scripts:/app/scripts
+      - ./prepare_dataset/utils:/app/utils
+      - ./prepare_dataset/config.yaml:/app/config.yaml:ro
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+    shm_size: 4g
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
+
+  experiments:
+    build:
+      context: .
+      dockerfile: experiments/Dockerfile
+    container_name: experiments
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONPATH=/app:/app/experiments/scripts:/app/experiments/utils
+    volumes:
+      - ./data:/app/data
+      - ./experiments:/app/experiments
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+    shm_size: 8g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    working_dir: /app/experiments
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
