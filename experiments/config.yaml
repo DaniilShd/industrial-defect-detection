@@ -1,85 +1,49 @@
-# ============================================================
-# КОНФИГУРАЦИЯ ЭКСПЕРИМЕНТА
-# ============================================================
-
 experiment:
   name: "synthetic_data_efficacy"
   description: "Влияние синтетических данных на качество LT-DETR детекции дефектов"
   author: "магистерская диссертация"
-  seed: 42
 
-# ============================================================
-# ПУТИ К ДАННЫМ
-# ============================================================
 paths:
-  experiment_data: "/app/data/experiment/datasets"  # Собранные датасеты
+  experiment_data: "/app/data/experiment/datasets"
   results_dir: "/app/experiments/reports"
   models_dir: "/app/experiments/models"
 
-# ============================================================
-# ДАТАСЕТЫ ДЛЯ ЭКСПЕРИМЕНТА
-# ============================================================
 datasets:
   real_baseline:
     data_yaml: "real_baseline/data.yaml"
     type: "baseline"
-  
   real_augmented:
     data_yaml: "real_augmented/data.yaml"
     type: "augmented"
-  
   synthetic_full:
     data_yaml: "synthetic_full/data.yaml"
     type: "synthetic_only"
-  
   real_plus_synthetic_aug:
     data_yaml: "real_plus_synthetic_aug/data.yaml"
     type: "mixed"
-  
   mixed_full:
     data_yaml: "mixed_full/data.yaml"
     type: "mixed"
 
-# ============================================================
-# СТРАТЕГИИ ОБУЧЕНИЯ (BACKBONE)
-# ============================================================
-backbone_strategies:
-  frozen:
-    freeze_backbone: true
-    backbone_lr_factor: 0.1
-  
-  finetune:
-    freeze_backbone: false
-    backbone_lr_factor: 0.1
-
-# ============================================================
-# ПАРАМЕТРЫ ОБУЧЕНИЯ
-# ============================================================
 training:
-  model: "dinov2-small"
+  model: "dinov2/vits14-ltdetr"
   max_steps: 7000
-  early_stopping_patience: 3
   val_every_steps: 500
   lr: 0.0001
   batch_size: 8
-  image_size: 640
   conf_threshold: 0.25
 
-# ============================================================
-# ПОВТОРЫ И СТАТИСТИКА
-# ============================================================
-repeats: 2
+ssl:
+  unlabeled_data: "/app/data/unlabeled"
+  epochs: 10
+  batch_size: 32
+
 seeds: [42, 123, 777]
 
 statistics:
   alpha: 0.05
-  power: 0.8
-  expected_effect_size: 0.8  # Cohen's d
-  correction_method: "holm"   # Holm-Bonferroni
+  correction_method: "holm"
 
-# ============================================================
-# YOLO КЛАССЫ
-# ============================================================
 classes:
   num_classes: 4
   names:
@@ -88,9 +52,6 @@ classes:
     2: "defect3"
     3: "defect4"
 
-# ============================================================
-# MLflow
-# ============================================================
 mlflow:
   tracking_uri: "file:///app/mlruns"
   experiment_name: "synthetic_efficacy_experiment"

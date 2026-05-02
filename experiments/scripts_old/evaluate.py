@@ -19,39 +19,54 @@ def evaluate_model(
     num_classes: int = 4,
     conf_threshold: float = 0.25,
 ) -> dict:
-    """COCO-стандартные метрики."""
+    """
+    COCO-стандартные метрики.
+    
+    Args:
+        model_or_path: модель lightly_train или путь к .pt файлу
+        test_images: путь к изображениям
+        test_labels: путь к YOLO-лейблам
+        num_classes: количество классов
+        conf_threshold: порог уверенности
+    """
     import lightly_train
-
+    
+    # Загружаем модель если передан путь
     if isinstance(model_or_path, (str, Path)):
         model = lightly_train.load_model(str(model_or_path))
     else:
         model = model_or_path
-
-    all_preds, all_gts = [], []
-
+    
+    all_preds = []
+    all_gts = []
+    
     image_files = sorted([
         f for f in test_images.glob("*")
         if f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff']
     ])
-
+    
     logger.info(f"Evaluating on {len(image_files)} test images")
-
+    
     for img_path in image_files:
+        # Предсказания
         try:
             with torch.no_grad():
                 results = model.predict(str(img_path))
         except Exception as e:
             logger.warning(f"Prediction failed for {img_path.name}: {e}")
             continue
-
+        
         labels = results.get('labels', torch.tensor([]))
         bboxes = results.get('bboxes', torch.tensor([]))
         scores = results.get('scores', torch.tensor([]))
-
-        if isinstance(labels, torch.Tensor): labels = labels.cpu().numpy()
-        if isinstance(bboxes, torch.Tensor): bboxes = bboxes.cpu().numpy()
-        if isinstance(scores, torch.Tensor): scores = scores.cpu().numpy()
-
+        
+        if isinstance(labels, torch.Tensor):
+            labels = labels.cpu().numpy()
+        if isinstance(bboxes, torch.Tensor):
+            bboxes = bboxes.cpu().numpy()
+        if isinstance(scores, torch.Tensor):
+            scores = scores.cpu().numpy()
+        
         for box, score, label in zip(bboxes, scores, labels):
             if score >= conf_threshold:
                 all_preds.append({
@@ -60,7 +75,8 @@ def evaluate_model(
                     'class': int(label),
                     'confidence': float(score),
                 })
-
+        
+        # Ground truth
         label_path = test_labels / f"{img_path.stem}.txt"
         if label_path.exists():
             try:
@@ -68,7 +84,7 @@ def evaluate_model(
                     iw, ih = img.size
             except Exception:
                 iw, ih = 640, 640
-
+            
             with open(label_path) as f:
                 for line in f:
                     parts = line.strip().split()
@@ -89,69 +105,98 @@ def evaluate_model(
                             })
                     except (ValueError, IndexError):
                         continue
-
-    num_preds, num_gts = len(all_preds), len(all_gts)
+    
+    num_preds = len(all_preds)
+    num_gts = len(all_gts)
     logger.info(f"Predictions: {num_preds}, Ground truth: {num_gts}")
-
+    
     if not all_preds or not all_gts:
         return {
-            'mAP_50': 0.0, 'mAP_75': 0.0, 'mAP_50_95': 0.0,
+            'mAP_50': 0.0,
+            'mAP_75': 0.0,
+            'mAP_50_95': 0.0,
             **{f'cls{c}_AP50': 0.0 for c in range(num_classes)},
-            'num_predictions': num_preds, 'num_ground_truth': num_gts,
+            'num_predictions': num_preds,
+            'num_ground_truth': num_gts,
         }
-
-    per_class_ap50 = {f'cls{c}_AP50': _compute_ap(all_preds, all_gts, c, 0.5) for c in range(num_classes)}
+    
+    # Per-class AP50
+    per_class_ap50 = {
+        f'cls{c}_AP50': _compute_ap(all_preds, all_gts, c, 0.5)
+        for c in range(num_classes)
+    }
+    
+    # mAP@50
     map50 = float(np.mean(list(per_class_ap50.values())))
-    map75 = float(np.mean([_compute_ap(all_preds, all_gts, c, 0.75) for c in range(num_classes)]))
+    
+    # mAP@75
+    map75 = float(np.mean([
+        _compute_ap(all_preds, all_gts, c, 0.75)
+        for c in range(num_classes)
+    ]))
+    
+    # mAP@50:95 (COCO standard)
     thresholds = np.linspace(0.5, 0.95, 10)
     map50_95 = float(np.mean([
         np.mean([_compute_ap(all_preds, all_gts, c, thr) for c in range(num_classes)])
         for thr in thresholds
     ]))
-
+    
     return {
-        'mAP_50': map50, 'mAP_75': map75, 'mAP_50_95': map50_95,
+        'mAP_50': map50,
+        'mAP_75': map75,
+        'mAP_50_95': map50_95,
         **per_class_ap50,
-        'num_predictions': num_preds, 'num_ground_truth': num_gts,
+        'num_predictions': num_preds,
+        'num_ground_truth': num_gts,
     }
 
 
 def _compute_ap(preds, gts, cls, iou_thr):
+    """Вычисление Average Precision для одного класса."""
     cls_preds = sorted(
         [p for p in preds if p['class'] == cls],
-        key=lambda x: x['confidence'], reverse=True,
+        key=lambda x: x['confidence'],
+        reverse=True,
     )
     cls_gts = [g for g in gts if g['class'] == cls]
+    
     if not cls_gts or not cls_preds:
         return 0.0
-
+    
     tp = np.zeros(len(cls_preds))
     fp = np.zeros(len(cls_preds))
     matched = set()
-
+    
     for i, pred in enumerate(cls_preds):
-        img_gts = [(j, g) for j, g in enumerate(cls_gts)
-                   if g['image_id'] == pred['image_id'] and j not in matched]
+        img_gts = [
+            (j, g) for j, g in enumerate(cls_gts)
+            if g['image_id'] == pred['image_id'] and j not in matched
+        ]
         if not img_gts:
             fp[i] = 1
             continue
+        
         pbox = torch.tensor([pred['bbox']], dtype=torch.float32)
         gboxes = torch.tensor([g[1]['bbox'] for g in img_gts], dtype=torch.float32)
         ious = box_iou(pbox, gboxes)[0]
         best_j = ious.argmax().item()
+        
         if ious[best_j] >= iou_thr:
             tp[i] = 1
             matched.add(img_gts[best_j][0])
         else:
             fp[i] = 1
-
+    
     tp_cum = np.cumsum(tp)
     fp_cum = np.cumsum(fp)
     recalls = tp_cum / len(cls_gts)
     precs = tp_cum / np.maximum(tp_cum + fp_cum, 1e-16)
-
+    
+    # 101-point interpolation
     ap = 0.0
     for t in np.linspace(0, 1, 101):
         if np.any(recalls >= t):
             ap += np.max(precs[recalls >= t]) / 101.0
+    
     return float(ap)

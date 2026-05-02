@@ -18,7 +18,6 @@ ENV PATH="/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir -U pip setuptools wheel
 
-# Фиксированные версии для совместимости diffusers + lightly_train
 RUN pip install --no-cache-dir \
     huggingface_hub==0.20.3 \
     tokenizers==0.15.2 \
@@ -36,7 +35,7 @@ RUN pip install --no-cache-dir \
     opencv-python-headless==4.10.0.84 \
     tqdm==4.66.5 \
     scipy==1.14.0 \
-    matplotlib==3.8.0 \
+    matplotlib>=3.9.0 \
     pyyaml==6.0.1 \
     pandas \
     albumentations==1.4.8 \
@@ -44,7 +43,6 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu128
 
-# Lightly — сначала с зависимостями, потом фиксируем версии
 RUN pip install --no-cache-dir lightly
 RUN pip install --no-cache-dir lightly_train
 RUN pip install --no-cache-dir --force-reinstall \
@@ -64,8 +62,6 @@ ENV HF_HOME=/app/cache/huggingface \
     CUDA_VISIBLE_DEVICES=0
 
 RUN python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
-
-# Проверка импортов
 RUN python -c "from diffusers import StableDiffusionImg2ImgPipeline; print('diffusers OK')"
 RUN python -c "from lightly_train import train_object_detection; print('lightly_train OK')"
 

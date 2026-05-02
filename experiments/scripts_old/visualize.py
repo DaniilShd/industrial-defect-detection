@@ -13,16 +13,20 @@ plt.style.use('seaborn-v0_8-paper')
 
 
 def create_all_visualizations(all_results: list, stats: dict, config: dict, output_dir: Path):
+    """Создаёт все графики"""
+    
     completed = [r for r in all_results if r.get('status') == 'completed']
     if not completed:
         return
-
+    
+    # Группируем
     groups = defaultdict(list)
     for r in completed:
         groups[r['dataset_name']].append(r['test_map50'])
-
+    
     names = sorted(groups.keys())
-
+    
+    # 1. Boxplot
     fig, ax = plt.subplots(figsize=(12, 6))
     data = [groups[n] for n in names]
     bp = ax.boxplot(data, labels=names, patch_artist=True)
@@ -35,7 +39,8 @@ def create_all_visualizations(all_results: list, stats: dict, config: dict, outp
     plt.tight_layout()
     plt.savefig(output_dir / 'boxplot_map50.png', dpi=300)
     plt.close()
-
+    
+    # 2. Bar chart
     fig, ax = plt.subplots(figsize=(10, 6))
     means = [np.mean(groups[n]) for n in names]
     sems = [np.std(groups[n], ddof=1) / np.sqrt(len(groups[n])) for n in names]
