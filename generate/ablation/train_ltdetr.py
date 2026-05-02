@@ -86,7 +86,7 @@ def train_ltdetr(
     
     params = {
         "out": str(out_dir),
-        "model": "dinov2-small",
+        "model": "dinov3/convnext-tiny-ltdetr-coco",
         "data": str(data_yaml),
         "seed": seed,
         "precision": precision,

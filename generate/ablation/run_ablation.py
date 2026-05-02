@@ -114,7 +114,6 @@ def setup_dataset_dir(run_dir: Path, real_train: Path, real_val: Path, real_test
 
 
 def main():
-    # Загрузка конфига
     config_path = Path(__file__).parent / "config.yaml"
     cfg = load_ablation_config(str(config_path))
 
@@ -132,7 +131,6 @@ def main():
     combos = get_combinations(grid)
     logger.info(f"Total runs: {len(combos)}")
     
-    # MLflow
     mlflow.set_tracking_uri(cfg['mlflow']['tracking_uri'])
     mlflow.set_experiment(cfg['mlflow']['experiment_name'])
     
@@ -159,6 +157,7 @@ def main():
                 
                 # 2. Подготовка датасета
                 data_yaml = setup_dataset_dir(run_dir, real_train, real_val, real_test, synth_dir)
+                mlflow.log_artifact(str(data_yaml))
                 
                 # 3. Обучение
                 ltdetr_dir = run_dir / "ltdetr"
@@ -172,23 +171,23 @@ def main():
                 )
                 
                 # 4. Оценка
-                if train_result['model_path']:
-                    metrics = evaluate_model(
-                        train_result['model_path'],
-                        real_test / "images",
-                        real_test / "labels"
-                    )
-                else:
-                    metrics = {'mAP@50': 0.0, 'mAP@75': 0.0}
+                metrics = {'mAP_50': 0.0, 'mAP_75': 0.0, 'mAP_50_95': 0.0}
+                if train_result.get('model_path'):
+                    try:
+                        metrics = evaluate_model(
+                            train_result['model_path'],
+                            real_test / "images",
+                            real_test / "labels"
+                        )
+                        logger.info(f"mAP_50={metrics['mAP_50']:.4f}, mAP_75={metrics['mAP_75']:.4f}")
+                    except Exception as e:
+                        logger.error(f"Evaluation failed: {e}")
+                        traceback.print_exc()
                 
                 metrics['training_time_h'] = train_result['training_time_hours']
                 
                 mlflow.log_metrics(metrics)
-                mlflow.log_artifact(str(data_yaml))
-                
                 all_results.append({**run_params, **metrics})
-                
-                logger.info(f"mAP@50={metrics['mAP@50']:.4f}, mAP@75={metrics['mAP@75']:.4f}")
                 
             except Exception as e:
                 logger.error(f"Run {run_id} failed: {e}")
@@ -197,12 +196,11 @@ def main():
             
             finally:
                 torch.cuda.empty_cache()
-                shutil.rmtree(run_dir / "dataset", ignore_errors=True)  # ← вернуть
+                shutil.rmtree(run_dir / "dataset", ignore_errors=True)
     
-    # Итоги
     if all_results:
-        best = max(all_results, key=lambda x: x['mAP@50'])
-        logger.info(f"\nBest run: {best['run_id']} mAP@50={best['mAP@50']:.4f}")
+        best = max(all_results, key=lambda x: x['mAP_50'])
+        logger.info(f"\nBest run: {best['run_id']} mAP_50={best['mAP_50']:.4f}")
         logger.info(f"  defect_strength={best.get('sd_defect_strength', '?')}, "
                    f"bg_strength={best.get('sd_background_strength', '?')}, "
                    f"hf_alpha={best.get('high_freq_alpha', '?')}, "

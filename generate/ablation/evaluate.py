@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Оценка модели LT-DETR: mAP@50, mAP@75, mAP@50:95, per-class AP50"""
+"""Оценка модели LT-DETR: mAP_50, mAP_75, mAP_50_95, per-class AP50"""
 
 import logging
 from pathlib import Path
@@ -20,16 +20,10 @@ def evaluate_model(
     num_classes: int = 4,
     conf_threshold: float = 0.25
 ) -> Dict:
-    """
-    Оценка модели на тестовом наборе.
-    Возвращает:
-        mAP@50, mAP@75, mAP@50:95 (COCO standard),
-        per-class AP50, количество предсказаний и ground truth.
-    """
-    from lightly_train import load_model
+    """Оценка модели на тестовом наборе."""
+    import lightly_train
     
-    model = load_model(model_path)
-    model.eval()
+    model = lightly_train.load_model(model_path)
     
     all_preds = []
     all_gts = []
@@ -40,28 +34,30 @@ def evaluate_model(
     logger.info(f"Evaluating on {len(image_files)} test images")
     
     for img_path in image_files:
-        # Предсказания
-        with torch.no_grad():
-            results = model.predict(str(img_path))
+        try:
+            with torch.no_grad():
+                results = model.predict(str(img_path))
+            
+            labels = results.get('labels', torch.tensor([]))
+            bboxes = results.get('bboxes', torch.tensor([]))
+            scores = results.get('scores', torch.tensor([]))
+            
+            if isinstance(labels, torch.Tensor): labels = labels.cpu().numpy()
+            if isinstance(bboxes, torch.Tensor): bboxes = bboxes.cpu().numpy()
+            if isinstance(scores, torch.Tensor): scores = scores.cpu().numpy()
+            
+            for box, score, label in zip(bboxes, scores, labels):
+                if score >= conf_threshold:
+                    all_preds.append({
+                        'image_id': img_path.stem,
+                        'bbox': box.tolist() if hasattr(box, 'tolist') else list(box),
+                        'class': int(label),
+                        'confidence': float(score)
+                    })
+        except Exception as e:
+            logger.warning(f"Prediction failed for {img_path.name}: {e}")
+            continue
         
-        labels = results.get('labels', torch.tensor([]))
-        bboxes = results.get('bboxes', torch.tensor([]))
-        scores = results.get('scores', torch.tensor([]))
-        
-        if isinstance(labels, torch.Tensor): labels = labels.cpu().numpy()
-        if isinstance(bboxes, torch.Tensor): bboxes = bboxes.cpu().numpy()
-        if isinstance(scores, torch.Tensor): scores = scores.cpu().numpy()
-        
-        for box, score, label in zip(bboxes, scores, labels):
-            if score >= conf_threshold:
-                all_preds.append({
-                    'image_id': img_path.stem,
-                    'bbox': box.tolist() if hasattr(box, 'tolist') else list(box),
-                    'class': int(label),
-                    'confidence': float(score)
-                })
-        
-        # Ground truth
         label_path = test_labels / f"{img_path.stem}.txt"
         if label_path.exists():
             with Image.open(img_path) as img:
@@ -90,54 +86,37 @@ def evaluate_model(
     
     if not all_preds or not all_gts:
         return {
-            'mAP@50': 0.0,
-            'mAP@75': 0.0,
-            'mAP@50:95': 0.0,
+            'mAP_50': 0.0, 'mAP_75': 0.0, 'mAP_50_95': 0.0,
             **{f'cls{c}_AP50': 0.0 for c in range(num_classes)},
             'num_predictions': num_preds,
             'num_ground_truth': num_gts
         }
     
-    # Per-class AP@50 и AP@75
-    per_class_ap50 = {}
-    per_class_ap75 = {}
-    for c in range(num_classes):
-        per_class_ap50[f'cls{c}_AP50'] = _compute_ap(all_preds, all_gts, c, 0.5)
-        per_class_ap75[f'cls{c}_AP75'] = _compute_ap(all_preds, all_gts, c, 0.75)
+    per_class_ap50 = {f'cls{c}_AP50': _compute_ap(all_preds, all_gts, c, 0.5) for c in range(num_classes)}
     
-    # mAP@50 и mAP@75
     map50 = float(np.mean(list(per_class_ap50.values())))
-    map75 = float(np.mean(list(per_class_ap75.values())))
+    map75 = float(np.mean([_compute_ap(all_preds, all_gts, c, 0.75) for c in range(num_classes)]))
     
-    # mAP@50:95 — COCO standard (10 порогов от 0.5 до 0.95 с шагом 0.05)
     thresholds = np.linspace(0.5, 0.95, 10)
-    map_per_threshold = []
-    for thr in thresholds:
-        aps = [_compute_ap(all_preds, all_gts, c, thr) for c in range(num_classes)]
-        map_per_threshold.append(np.mean(aps))
-    map50_95 = float(np.mean(map_per_threshold))
+    map50_95 = float(np.mean([np.mean([_compute_ap(all_preds, all_gts, c, thr) 
+                                        for c in range(num_classes)]) for thr in thresholds]))
     
-    metrics = {
-        'mAP@50': map50,
-        'mAP@75': map75,
-        'mAP@50:95': map50_95,
+    return {
+        'mAP_50': map50,
+        'mAP_75': map75,
+        'mAP_50_95': map50_95,
         **per_class_ap50,
         'num_predictions': num_preds,
         'num_ground_truth': num_gts
     }
-    
-    return metrics
 
 
 def _compute_ap(preds: List, gts: List, cls: int, iou_thr: float) -> float:
-    """Average Precision для одного класса при заданном IoU пороге"""
     cls_preds = sorted([p for p in preds if p['class'] == cls],
                       key=lambda x: x['confidence'], reverse=True)
     cls_gts = [g for g in gts if g['class'] == cls]
     
-    if not cls_gts:
-        return 0.0
-    if not cls_preds:
+    if not cls_gts or not cls_preds:
         return 0.0
     
     tp = np.zeros(len(cls_preds))
@@ -167,12 +146,9 @@ def _compute_ap(preds: List, gts: List, cls: int, iou_thr: float) -> float:
     recalls = tp_cum / len(cls_gts)
     precs = tp_cum / np.maximum(tp_cum + fp_cum, 1e-16)
     
-    # 101-point interpolated AP
     ap = 0.0
     for t in np.linspace(0, 1, 101):
         if np.any(recalls >= t):
             ap += np.max(precs[recalls >= t]) / 101.0
-        else:
-            ap += 0.0
     
     return float(ap)

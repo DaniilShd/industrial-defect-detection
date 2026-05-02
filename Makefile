@@ -27,6 +27,9 @@ shell-generate:
 shell-prepare_dataset:
 	docker exec -it prepare_dataset /bin/bash
 
+up-mlflow:
+	docker compose up -d mlflow
+
 
 # # Дефектные патчи (по умолчанию)
 # python generation/scripts/05_visualize_bboxes.py --samples 20

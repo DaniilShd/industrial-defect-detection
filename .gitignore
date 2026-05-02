@@ -6,7 +6,7 @@ cache/matplotlib/
 # Data directories (игнорируем данные, кроме структуры)
 data/
 cache/
-
+mlruns/
 
 # Models (обученные модели весят много)
 models/

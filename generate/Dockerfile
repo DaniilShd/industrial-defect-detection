@@ -44,9 +44,14 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir xformers --index-url https://download.pytorch.org/whl/cu128
 
-# Lightly и lightly_train — отдельно, без обновления huggingface_hub
-RUN pip install --no-cache-dir --no-deps lightly
-RUN pip install --no-cache-dir --no-deps lightly_train
+# Lightly — сначала с зависимостями, потом фиксируем версии
+RUN pip install --no-cache-dir lightly
+RUN pip install --no-cache-dir lightly_train
+RUN pip install --no-cache-dir --force-reinstall \
+    huggingface_hub==0.20.3 \
+    tokenizers==0.15.2 \
+    transformers==4.36.0 \
+    diffusers==0.25.0
 
 RUN mkdir -p /app/{scripts,utils,data,cache,mlruns}
 
@@ -59,5 +64,9 @@ ENV HF_HOME=/app/cache/huggingface \
     CUDA_VISIBLE_DEVICES=0
 
 RUN python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+
+# Проверка импортов
+RUN python -c "from diffusers import StableDiffusionImg2ImgPipeline; print('diffusers OK')"
+RUN python -c "from lightly_train import train_object_detection; print('lightly_train OK')"
 
 CMD ["tail", "-f", "/dev/null"]

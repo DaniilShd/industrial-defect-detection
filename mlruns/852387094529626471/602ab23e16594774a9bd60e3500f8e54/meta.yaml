@@ -1,8 +1,9 @@
 artifact_uri: file:///app/mlruns/852387094529626471/602ab23e16594774a9bd60e3500f8e54/artifacts
+deleted_time: 1777669672747
 end_time: 1777669428350
 entry_point_name: ''
 experiment_id: '852387094529626471'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 602ab23e16594774a9bd60e3500f8e54
 run_name: abl_000_r0
 source_name: ''
