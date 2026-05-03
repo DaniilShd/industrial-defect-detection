@@ -12,6 +12,8 @@ import numpy as np
 import torch
 from PIL import Image
 
+from peft import LoraConfig, get_peft_model
+
 logger = logging.getLogger(__name__)
 
 USE_MERGED_LORA = False
@@ -53,14 +55,30 @@ class SDDefectGeneratorLoRA:
             pass
 
         # ✅ Правильная загрузка LoRA
+        # ✅ Правильная загрузка LoRA
+        # sd_generator_lora.py, заменить загрузку:
         if lora_weights_path and Path(lora_weights_path).exists():
-            self.pipe.unet = PeftModel.from_pretrained(
-                self.pipe.unet, lora_weights_path, is_trainable=False
+            from safetensors.torch import load_file
+            
+            lora_cfg = self.config['lora']
+            lora_config = LoraConfig(
+                r=lora_cfg['rank'], lora_alpha=lora_cfg['alpha'],
+                target_modules=["to_q", "to_k", "to_v", "to_out.0"],
             )
+            self.pipe.unet = get_peft_model(self.pipe.unet, lora_config)
+            
+            # Загружаем веса напрямую
+            state_dict = load_file(str(Path(lora_weights_path) / "adapter_model.safetensors"))
+            
+            # Убираем префикс base_model.model.
+            cleaned = {}
+            for k, v in state_dict.items():
+                new_k = k.replace('base_model.model.', '')
+                cleaned[new_k] = v
+            
+            self.pipe.unet.load_state_dict(cleaned, strict=False)
             self.pipe.unet.eval()
-            if USE_MERGED_LORA:
-                self.pipe.unet.merge_and_unload()
-            logger.info(f"✅ LoRA loaded")
+            logger.info(f"✅ LoRA loaded: {len(cleaned)} params from safetensors")                                                      
 
         if device == "cuda":
             self.pipe = self.pipe.to(device)
@@ -79,7 +97,10 @@ class SDDefectGeneratorLoRA:
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
 
-        guidance = guidance + random.uniform(-0.5, 0.5)
+        gen_cfg = self.config['generation']
+        guidance = guidance + random.uniform(-gen_cfg['guidance_jitter'], gen_cfg['guidance_jitter'])
+
+        # guidance = guidance + random.uniform(-0.5, 0.5)
         generator = torch.Generator(
             device=self.device if torch.cuda.is_available() else "cpu"
         ).manual_seed(seed)

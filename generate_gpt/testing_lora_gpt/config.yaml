@@ -11,6 +11,9 @@ paths:
   real_test: "/app/data/processed/balanced_defect_patches/test"
   results_dir: "/app/data/results/lora_test"
 
+# ============================================================
+# LoRA ОБУЧЕНИЕ
+# ============================================================
 lora:
   rank: 4
   alpha: 8
@@ -18,15 +21,96 @@ lora:
   max_steps: 1000
   batch_size: 2
   save_every: 200
+  prompt_dropout: 0.1          # 10% шагов без промпта
+  image_size: 512               # размер для LoRA обучения
+  mask_blur_kernel: 31          # блюр маски при обучении
 
 # ============================================================
-# generate/testing_lora/config.yaml — ОБНОВЛЁННЫЕ ПАРАМЕТРЫ
+# ГЕНЕРАЦИЯ СИНТЕТИКИ
 # ============================================================
-# config.yaml
 generation:
-  sd_strength_min: 0.25
-  sd_strength_max: 0.45
+  random_seed: 42
+  variants: 3                   # сколько вариантов на изображение
+  
+  # SD Inpainting
   sd_steps: 30
   sd_guidance_scale: 4.0
-  high_freq_alpha: 0.3
+  guidance_jitter: 0.5          # ±random.uniform для diversity
+  
+  # Strength (адаптивный по размеру дефекта)
+  strength_small_min: 0.55      # area < 1%
+  strength_small_max: 0.80
+  strength_medium_min: 0.45     # 1% ≤ area < 5%
+  strength_medium_max: 0.65
+  strength_large_min: 0.40      # area ≥ 5%
+  strength_large_max: 0.55
+  
+  # Маска
+  pad: 32                       # отступ вокруг bbox
+  mask_dilate_kernel: 7         # расширение маски
+  mask_dilate_iterations: 1
+  mask_blur_kernel: 9           # блюр маски (было 15)
+  
+  # Цветокоррекция
   color_correction: 0.85
+  
+  # Edge-aware blur
+  edge_blur_kernel: 5
+  edge_blur_strength: 0.7       # доля оригинала (0.7 = 70% оригинал)
+  canny_low: 50
+  canny_high: 150
+  
+  # High-frequency injection
+  use_high_freq_injection: true
+  high_freq_alpha: 0.3
+  
+  # Промпты
+  negative_prompt: "blurry, low quality, artifacts, distorted, smooth, plastic, painting"
+  
+  # Классы
+  class_labels:
+    0: "crack"
+    1: "rust"
+    2: "scratch"
+    3: "dent"
+  
+  prompt_templates:
+    - "photo of {cls} on steel sheet, industrial lighting, ultra realistic, 4k"
+    - "close-up photo of {cls}, metallic surface, sharp details, realistic texture"
+    - "{cls} defect on brushed steel, high frequency detail, macro photography"
+    - "industrial defect: {cls}, steel surface, realistic lighting, no blur"
+
+# ============================================================
+# ДЕТЕКТОР LT-DETR
+# ============================================================
+ltdetr:
+  model: "dinov3/convnext-tiny-ltdetr-coco"
+  max_steps: 5500
+  early_stopping_patience: 3
+  val_every_steps: 500
+  lr: 0.0001
+  batch_size: 8
+  image_size: 640
+  backbone_freeze: true
+  backbone_lr_factor: 0.1
+  precision: "bf16-mixed"
+  seed: 42
+
+# ============================================================
+# ДАТАСЕТ (для YOLO)
+# ============================================================
+dataset:
+  nc: 4
+  names:
+    0: "defect_1"
+    1: "defect_2"
+    2: "defect_3"
+    3: "defect_4"
+
+# ============================================================
+# MLflow
+# ============================================================
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "lora_finetune"
+  run_name: "lora_inpaint"

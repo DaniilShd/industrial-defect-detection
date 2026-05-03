@@ -122,7 +122,7 @@ def generate_pseudo_defect_mask(size: int = 512) -> torch.Tensor:
         cv2.circle(mask, (cx, cy), np.random.randint(5, size//8), color=1.0, thickness=-1)
 
     # ✅ Блюр маски — убирает distribution mismatch с inference
-    mask = cv2.GaussianBlur(mask, (31, 31), 0)
+    mask = cv2.GaussianBlur(mask, (config['mask_blur_kernel'], config['mask_blur_kernel']), 0)
     mask = np.clip(mask, 0, 1)
 
     return torch.tensor(mask).unsqueeze(0).unsqueeze(0)
@@ -164,10 +164,10 @@ def train_lora(base_model: str, dataset_dir: Path, output_dir: Path, config: dic
         img_path, prompt = dataset[np.random.randint(len(dataset))]
 
         # ✅ Prompt dropout — 10% без текста (учит безусловную генерацию)
-        if np.random.random() < 0.1:
+        if np.random.random() < config['prompt_dropout']:
             prompt = ""
 
-        image = Image.open(img_path).convert("RGB").resize((512, 512))
+        image = Image.open(img_path).convert("RGB").resize((config['image_size'], config['image_size']))
 
         # ✅ Pseudo-defect mask вместо прямоугольников
         mask = generate_pseudo_defect_mask(512).to("cuda")
@@ -213,10 +213,12 @@ def train_lora(base_model: str, dataset_dir: Path, output_dir: Path, config: dic
 
         if (step + 1) % config['save_every'] == 0:
             output_dir.mkdir(parents=True, exist_ok=True)
-            torch.save(pipe.unet.state_dict(), output_dir / f"lora_weights_step_{step+1}.pt")
+            pipe.unet.save_pretrained(output_dir / f"checkpoint-{step+1}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    final_path = output_dir / "lora_weights_final.pt"
-    torch.save(pipe.unet.state_dict(), final_path)
+    final_path = output_dir / "lora_final"
+    pipe.unet.save_pretrained(final_path)
+    lora_config.save_pretrained(final_path)
+    
     logger.info(f"Final weights: {final_path}")
-    return final_path
+    return final_path 

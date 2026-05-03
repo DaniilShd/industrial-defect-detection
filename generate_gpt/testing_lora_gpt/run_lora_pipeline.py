@@ -65,7 +65,11 @@ def main():
     mlflow.set_tracking_uri("file:///app/mlruns")
     mlflow.set_experiment("lora_finetune")
 
-    with mlflow.start_run(run_name="lora_inpaint"):
+    mlflow_cfg = cfg['mlflow']
+    mlflow.set_tracking_uri(mlflow_cfg['tracking_uri'])
+    mlflow.set_experiment(mlflow_cfg['experiment_name'])
+
+    with mlflow.start_run(run_name=mlflow_cfg['run_name']):
         # === 1. LoRA обучение ===
         logger.info("=" * 60)
         logger.info("Step 1/4: Training LoRA on real defects")
@@ -79,22 +83,22 @@ def main():
 
         mlflow.log_metric("lora_training_samples", num_samples)
 
-        lora_weights = train_lora(
+        lora_weights_dir = train_lora(
             "runwayml/stable-diffusion-v1-5",
             lora_dir / "dataset",
             lora_dir / "weights",
             cfg['lora']
         )
 
-        if lora_weights:
-            mlflow.log_artifact(str(lora_weights))
+        if lora_weights_dir:
+            mlflow.log_artifact(str(lora_weights_dir))
 
         # === 2. Генерация синтетики ===
         logger.info("=" * 60)
         logger.info("Step 2/4: Generating synthetic data with SD Inpainting + LoRA")
 
         synth_dir = results_dir / "synthetic"
-        generator = LoRADefectGenerator(cfg, str(lora_weights))
+        generator = LoRADefectGenerator(cfg, str(lora_weights_dir))
 
         total = generator.generate_dataset(
             real_train / "images",
@@ -129,7 +133,8 @@ def main():
                     lbl_path = src_l / f"{img_path.stem}.txt"
                     if lbl_path.exists():
                         shutil.copy2(lbl_path, ds_dir / split / "labels" / lbl_path.name)
-
+        nc=cfg['dataset']['nc'],
+        names={int(k): v for k, v in cfg['dataset']['names'].items()}
         data_yaml = ds_dir / "data.yaml"
         with open(data_yaml, 'w') as f:
             yaml.dump({
@@ -138,8 +143,8 @@ def main():
                 'train': 'train/images',
                 'val': 'val/images',
                 'test': 'test/images',
-                'nc': 4,
-                'names': {0: 'defect_1', 1: 'defect_2', 2: 'defect_3', 3: 'defect_4'}
+                'nc': nc,
+                'names': names
             }, f)
         mlflow.log_artifact(str(data_yaml))
 
@@ -148,7 +153,14 @@ def main():
         logger.info("Step 4/4: Training LT-DETR detector")
 
         ltdetr_dir = results_dir / "ltdetr"
-        train_result = train_ltdetr(data_yaml, ltdetr_dir, max_steps=5500)
+        train_result = train_ltdetr(
+            data_yaml, ltdetr_dir,
+            max_steps=cfg['ltdetr']['max_steps'],
+            early_stopping_patience=cfg['ltdetr']['early_stopping_patience'],
+            val_every_steps=cfg['ltdetr']['val_every_steps'],
+            lr=cfg['ltdetr']['lr'],
+            batch_size=cfg['ltdetr']['batch_size']
+        )
 
         # Логи
         train_log = ltdetr_dir / "train.log"
