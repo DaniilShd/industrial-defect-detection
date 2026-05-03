@@ -109,6 +109,10 @@ def main():
 
         mlflow.log_metric("synthetic_images", total)
 
+        # Вместо этого — указать готовые пути:
+        # lora_weights_dir = "/app/data/results/lora_test/lora/weights/lora_final"
+        # synth_dir = Path("/app/data/results/lora_test/synthetic")
+
         # === 3. Подготовка датасета ===
         logger.info("=" * 60)
         logger.info("Step 3/4: Preparing dataset (real + synthetic)")
@@ -133,8 +137,9 @@ def main():
                     lbl_path = src_l / f"{img_path.stem}.txt"
                     if lbl_path.exists():
                         shutil.copy2(lbl_path, ds_dir / split / "labels" / lbl_path.name)
+        
         nc=cfg['dataset']['nc'],
-        names={int(k): v for k, v in cfg['dataset']['names'].items()}
+        names = {0: 'defect_1', 1: 'defect_2', 2: 'defect_3', 3: 'defect_4'}
         data_yaml = ds_dir / "data.yaml"
         with open(data_yaml, 'w') as f:
             yaml.dump({
@@ -143,9 +148,9 @@ def main():
                 'train': 'train/images',
                 'val': 'val/images',
                 'test': 'test/images',
-                'nc': nc,
+                'nc': 4,
                 'names': names
-            }, f)
+            }, f, default_flow_style=None)
         mlflow.log_artifact(str(data_yaml))
 
         # === 4. Обучение детектора ===

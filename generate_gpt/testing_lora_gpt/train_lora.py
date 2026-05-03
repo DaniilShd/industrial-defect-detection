@@ -72,7 +72,7 @@ def prepare_lora_dataset(real_train_dir: Path, output_dir: Path):
     return count
 
 
-def generate_pseudo_defect_mask(size: int = 512) -> torch.Tensor:
+def generate_pseudo_defect_mask(size: int = 512, mask_blur_kernel: int = 31) -> torch.Tensor:
     """
     Генерирует маску, похожую на реальные дефекты Severstal:
     - Тонкие линии (scratches)
@@ -122,7 +122,7 @@ def generate_pseudo_defect_mask(size: int = 512) -> torch.Tensor:
         cv2.circle(mask, (cx, cy), np.random.randint(5, size//8), color=1.0, thickness=-1)
 
     # ✅ Блюр маски — убирает distribution mismatch с inference
-    mask = cv2.GaussianBlur(mask, (config['mask_blur_kernel'], config['mask_blur_kernel']), 0)
+    mask = cv2.GaussianBlur(mask, (mask_blur_kernel, mask_blur_kernel), 0)
     mask = np.clip(mask, 0, 1)
 
     return torch.tensor(mask).unsqueeze(0).unsqueeze(0)
@@ -170,7 +170,7 @@ def train_lora(base_model: str, dataset_dir: Path, output_dir: Path, config: dic
         image = Image.open(img_path).convert("RGB").resize((config['image_size'], config['image_size']))
 
         # ✅ Pseudo-defect mask вместо прямоугольников
-        mask = generate_pseudo_defect_mask(512).to("cuda")
+        mask = generate_pseudo_defect_mask(512, config['mask_blur_kernel']).to("cuda")
 
         
         inputs = pipe.tokenizer(

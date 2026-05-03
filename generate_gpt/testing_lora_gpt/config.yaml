@@ -9,7 +9,7 @@ paths:
   real_train: "/app/data/processed/balanced_defect_patches/train"
   real_val: "/app/data/processed/balanced_defect_patches/val"
   real_test: "/app/data/processed/balanced_defect_patches/test"
-  results_dir: "/app/data/results/lora_test"
+  results_dir: "/app/data/results/lora_test_v1"
 
 # ============================================================
 # LoRA ОБУЧЕНИЕ
@@ -18,7 +18,7 @@ lora:
   rank: 4
   alpha: 8
   learning_rate: 0.0001
-  max_steps: 1000
+  max_steps: 2000
   batch_size: 2
   save_every: 200
   prompt_dropout: 0.1          # 10% шагов без промпта
@@ -38,10 +38,10 @@ generation:
   guidance_jitter: 0.5          # ±random.uniform для diversity
   
   # Strength (адаптивный по размеру дефекта)
-  strength_small_min: 0.55      # area < 1%
-  strength_small_max: 0.80
-  strength_medium_min: 0.45     # 1% ≤ area < 5%
-  strength_medium_max: 0.65
+  strength_small_min: 0.45      # area < 1%
+  strength_small_max: 0.65
+  strength_medium_min: 0.35     # 1% ≤ area < 5%
+  strength_medium_max: 0.50
   strength_large_min: 0.40      # area ≥ 5%
   strength_large_max: 0.55
   
@@ -49,13 +49,13 @@ generation:
   pad: 32                       # отступ вокруг bbox
   mask_dilate_kernel: 7         # расширение маски
   mask_dilate_iterations: 1
-  mask_blur_kernel: 9           # блюр маски (было 15)
+  mask_blur_kernel: 7           # блюр маски (было 15)
   
   # Цветокоррекция
   color_correction: 0.85
   
   # Edge-aware blur
-  edge_blur_kernel: 5
+  edge_blur_kernel: 5 
   edge_blur_strength: 0.7       # доля оригинала (0.7 = 70% оригинал)
   canny_low: 50
   canny_high: 150
@@ -69,10 +69,10 @@ generation:
   
   # Классы
   class_labels:
-    0: "crack"
-    1: "rust"
-    2: "scratch"
-    3: "dent"
+    0: "surface cavity"
+    1: "hairline"
+    2: "guide scratch"
+    3: "rolled-in scale"
   
   prompt_templates:
     - "photo of {cls} on steel sheet, industrial lighting, ultra realistic, 4k"
@@ -113,4 +113,4 @@ dataset:
 mlflow:
   tracking_uri: "file:///app/mlruns"
   experiment_name: "lora_finetune"
-  run_name: "lora_inpaint"
+  run_name: "lora_inpaint_v1"

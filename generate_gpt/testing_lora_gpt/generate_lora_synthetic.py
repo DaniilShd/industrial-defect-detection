@@ -162,12 +162,15 @@ class LoRADefectGenerator:
                             )
 
                             # ✅ Edge-aware blur — сохраняет текстуру
-                            edges = cv2.Canny(corrected.astype(np.uint8), gen_cfg['canny_low'], gen_cfg['canny_high'])
-                            edges_3ch = np.stack([edges] * 3, axis=-1)
-                            blurred = cv2.GaussianBlur(corrected, (gen_cfg['edge_blur_kernel'], gen_cfg['edge_blur_kernel']), 0)
-                            s = gen_cfg['edge_blur_strength']
-                            corrected = corrected * (s + (1-s) * edges_3ch) + blurred * ((1-s) * (1 - edges_3ch))
+                            # edges = cv2.Canny(corrected.astype(np.uint8), gen_cfg['canny_low'], gen_cfg['canny_high'])
+                            # edges_3ch = np.stack([edges] * 3, axis=-1)
+                            # blurred = cv2.GaussianBlur(corrected, (gen_cfg['edge_blur_kernel'], gen_cfg['edge_blur_kernel']), 0)
+                            # s = gen_cfg['edge_blur_strength']
+                            # corrected = corrected * (s + (1-s) * edges_3ch) + blurred * ((1-s) * (1 - edges_3ch))
 
+                            blurred = cv2.GaussianBlur(corrected.astype(np.float32), (gen_cfg['edge_blur_kernel'], gen_cfg['edge_blur_kernel']), 0)
+                            corrected = corrected * 0.7 + blurred * 0.3
+                            
                             # Смешивание
                             blended = apply_multiscale_blend(
                                 corrected.astype(np.float32),
