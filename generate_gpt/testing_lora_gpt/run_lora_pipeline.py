@@ -74,8 +74,39 @@ def main():
         logger.info("=" * 60)
         logger.info("Step 1/4: Training LoRA on real defects")
 
+        mlflow.log_params({
+            # Generator
+            'gen_strength_small_min': cfg['generation']['strength_small_min'],
+            'gen_strength_small_max': cfg['generation']['strength_small_max'],
+            'gen_strength_medium_min': cfg['generation']['strength_medium_min'],
+            'gen_strength_medium_max': cfg['generation']['strength_medium_max'],
+            'gen_strength_large_min': cfg['generation']['strength_large_min'],
+            'gen_strength_large_max': cfg['generation']['strength_large_max'],
+            'gen_mask_blur_kernel': cfg['generation']['mask_blur_kernel'],
+            'gen_sd_guidance_scale': cfg['generation']['sd_guidance_scale'],
+            'gen_sd_steps': cfg['generation']['sd_steps'],
+            'gen_color_correction': cfg['generation']['color_correction'],
+            'gen_edge_blur_kernel': cfg['generation']['edge_blur_kernel'],
+            'gen_high_freq_alpha': cfg['generation']['high_freq_alpha'],
+            'gen_variants': cfg['generation']['variants'],
+            # LoRA
+            'lora_rank': cfg['lora']['rank'],
+            'lora_alpha': cfg['lora']['alpha'],
+            'lora_max_steps': cfg['lora']['max_steps'],
+            'lora_learning_rate': cfg['lora']['learning_rate'],
+            # LT-DETR
+            'ltdetr_max_steps': cfg['ltdetr']['max_steps'],
+            'ltdetr_lr': cfg['ltdetr']['lr'],
+            'ltdetr_batch_size': cfg['ltdetr']['batch_size'],
+        })
+
         lora_dir = results_dir / "lora"
-        num_samples = prepare_lora_dataset(real_train, lora_dir / "dataset")
+        num_samples = prepare_lora_dataset(
+            real_train, lora_dir / "dataset",
+            cfg['generation']['class_labels'],
+            cfg['generation']['prompt_templates'],
+            rle_csv=real_train / "train_rle.csv"  # ← добавить
+        )
 
         if num_samples < 10:
             logger.error(f"Only {num_samples} images for LoRA — need at least 10!")

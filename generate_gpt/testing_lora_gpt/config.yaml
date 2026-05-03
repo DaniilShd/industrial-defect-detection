@@ -18,7 +18,7 @@ lora:
   rank: 4
   alpha: 8
   learning_rate: 0.0001
-  max_steps: 2000
+  max_steps: 1500
   batch_size: 2
   save_every: 200
   prompt_dropout: 0.1          # 10% шагов без промпта
