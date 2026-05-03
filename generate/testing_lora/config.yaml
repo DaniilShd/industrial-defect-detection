@@ -1,0 +1,31 @@
+# generate/testing_lora/config.yaml
+experiment:
+  name: "lora_finetune"
+  description: "LoRA дообучение SD на реальных дефектах + генерация синтетики"
+
+paths:
+  real_train: "/app/data/processed/balanced_defect_patches/train"
+  real_val: "/app/data/processed/balanced_defect_patches/val"
+  real_test: "/app/data/processed/balanced_defect_patches/test"
+  results_dir: "/app/data/results/lora_test"
+
+lora:
+  rank: 4
+  alpha: 8
+  learning_rate: 5e-4
+  max_steps: 1000
+  batch_size: 2
+  save_every: 200
+
+generation:
+  random_seed: 42
+  variants: 3
+  sd_strength_min: 0.12
+  sd_strength_max: 0.18
+  sd_steps: 25
+  sd_guidance_scale: 2.0
+  high_freq_alpha: 0.3
+  defect_consistency: 0.9
+  color_correction: 0.8
+  use_spectrum_matching: true
+  use_high_freq_injection: true

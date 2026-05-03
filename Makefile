@@ -24,6 +24,9 @@ shell-analysis:
 shell-generate:
 	docker exec -it generate /bin/bash
 
+shell-generate_gpt:
+	docker exec -it generate_gpt /bin/bash
+
 shell-prepare_dataset:
 	docker exec -it prepare_dataset /bin/bash
 

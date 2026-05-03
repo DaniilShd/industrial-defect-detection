@@ -1,0 +1,32 @@
+# ============================================================
+# generate/testing_lora/config.yaml
+# ============================================================
+experiment:
+  name: "lora_finetune"
+  description: "LoRA + SD Inpainting — доменная адаптация генерации дефектов"
+
+paths:
+  real_train: "/app/data/processed/balanced_defect_patches/train"
+  real_val: "/app/data/processed/balanced_defect_patches/val"
+  real_test: "/app/data/processed/balanced_defect_patches/test"
+  results_dir: "/app/data/results/lora_test"
+
+lora:
+  rank: 4
+  alpha: 8
+  learning_rate: 0.0001
+  max_steps: 1000
+  batch_size: 2
+  save_every: 200
+
+# ============================================================
+# generate/testing_lora/config.yaml — ОБНОВЛЁННЫЕ ПАРАМЕТРЫ
+# ============================================================
+# config.yaml
+generation:
+  sd_strength_min: 0.25
+  sd_strength_max: 0.45
+  sd_steps: 30
+  sd_guidance_scale: 4.0
+  high_freq_alpha: 0.3
+  color_correction: 0.85

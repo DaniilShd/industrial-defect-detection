@@ -1,0 +1,96 @@
+# ============================================================
+# ABLATION STUDY — СЕТКА ГИПЕРПАРАМЕТРОВ
+# ============================================================
+
+experiment:
+  name: "ablation_synthetic"
+  description: "Поиск оптимальных параметров генерации синтетики (дефект + фон)"
+
+# Фиксированные параметры обучения LT-DETR
+ltdetr:
+  backbone: "frozen"
+  max_steps: 5500
+  early_stopping_patience: 2
+  val_every_steps: 500
+  lr: 0.0001
+  batch_size: 8
+  image_size: 640
+
+# Пути к данным
+paths:
+  real_train: "/app/data/processed/balanced_defect_patches/train"
+  real_val: "/app/data/processed/balanced_defect_patches/val"
+  real_test: "/app/data/processed/balanced_defect_patches/test"
+  results_dir: "/app/data/results/ablation"
+
+# ============================================================
+# СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
+# ============================================================
+grid:
+  sd_defect_strength:
+    - 0.08
+    - 0.15
+    - 0.25
+
+  sd_background_strength:
+    - 0.05
+    - 0.12
+
+  high_freq_alpha:
+    - 0.2
+    - 0.4
+
+  variants:
+    - 2
+    - 3
+
+  balance_strategy:
+    - "proportional"
+
+  repeats: 1
+  
+  # Всего: 3 × 2 × 2 × 2 × 1 × 2 = 48 запусков
+
+# ============================================================
+# ФИКСИРОВАННЫЕ ПАРАМЕТРЫ ГЕНЕРАЦИИ
+# ============================================================
+fixed_generation:
+  random_seed: 42
+  sd_steps: 20
+  sd_guidance_scale: 1.8
+  bg_sd_steps: 20
+  bg_guidance_scale: 1.5
+  
+  defect_prompt: "metal surface defect, scratch, industrial steel texture, metallic sheen, brushed metal"
+  defect_negative: "smooth, plastic, wood, rust, glass, organic, painted, colorful, rainbow, vibrant"
+  background_prompt: "industrial steel surface, brushed metal texture, metallic sheen, uniform metal"
+  background_negative: "defect, scratch, crack, dent, damage, rust, colorful, rainbow, vibrant"
+  
+  defect_color_correction: 0.85
+  background_color_correction: 0.6
+  defect_consistency: 0.8
+  
+  use_spectrum_matching: true
+  use_high_freq_injection: true
+  
+  scale_factors:
+    - [1.05, 1.0]
+    - [1.0, 1.05]
+    - [1.1, 1.0]
+    - [1.0, 1.1]
+    - [1.15, 1.0]
+    - [1.0, 1.15]
+    - [1.1, 1.05]
+    - [1.05, 1.1]
+    - [1.2, 1.0]
+    - [1.0, 1.2]
+    - [1.15, 1.15]
+    - [1.3, 1.0]
+    - [1.0, 1.3]
+    - [1.05, 1.05]
+    - [1.1, 1.1]
+
+# MLflow
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "ablation_synthetic"

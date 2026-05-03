@@ -168,3 +168,45 @@ services:
     command: >
       bash -c "pip install mlflow &&
                mlflow ui --host 0.0.0.0 --port 5000"
+
+  generate_gpt:
+    build:
+      context: .
+      dockerfile: generate_gpt/Dockerfile
+    container_name: generate_gpt
+    runtime: nvidia
+    environment:
+      - PYTHONPATH=/app:/app/scripts:/app/utils:/app/generate_gpt/scripts
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/app/cache/huggingface
+      - HUGGINGFACE_HUB_CACHE=/app/cache/huggingface
+      - TRANSFORMERS_CACHE=/app/cache/huggingface
+      - TORCH_HOME=/app/cache/torch
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - OMP_NUM_THREADS=8
+      - PYTHONPATH=/app:/app/scripts:/app/utils
+    volumes:
+      - ./data:/app/data
+      - ./generate_gpt/config.yaml:/app/config.yaml:ro
+      - ./generate_gpt:/app/generate_gpt
+      - ./generate_gpt/scripts:/app/scripts           # ← мапим generate/scripts как /app/scripts
+      - ./generate_gpt/utils:/app/utils               # ← мапим generate/utils как /app/utils
+      - ./cache:/app/cache
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+    shm_size: 16g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
