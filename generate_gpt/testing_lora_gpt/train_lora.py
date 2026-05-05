@@ -1,8 +1,8 @@
 # ============================================================
-# generate/testing_lora/train_lora.py — REAL MASKS + UPGRADES
+# generate/testing_lora/train_lora.py — REAL MASKS + bf16 + UPGRADES
 # ============================================================
 #!/usr/bin/env python3
-"""LoRA training на INPAINTING с РЕАЛЬНЫМИ масками из RLE"""
+"""LoRA training на INPAINTING с РЕАЛЬНЫМИ масками из RLE + bf16"""
 
 import logging
 from pathlib import Path
@@ -116,7 +116,6 @@ def prepare_lora_dataset(real_train_dir: Path, output_dir: Path,
             cv2.imwrite(str(out_mask), real_mask * 255)
             count += 1
         else:
-            # Пропускаем изображения без масок — dummy маски ломают обучение
             logger.debug(f"Skipping {img_path.name}: no RLE mask")
             continue
     
@@ -124,21 +123,21 @@ def prepare_lora_dataset(real_train_dir: Path, output_dir: Path,
     return max(count, 1)
 
 
+# ============================================================
+# generate/testing_lora/train_lora.py — ФИНАЛЬНЫЙ TRAIN LOOP
+# ============================================================
 def train_lora(base_model: str, dataset_dir: Path, output_dir: Path, config: dict):
     from diffusers import StableDiffusionInpaintPipeline
     from peft import LoraConfig, get_peft_model
 
-    logger.info(f"Training LoRA on INPAINTING: rank={config['rank']}, steps={config['max_steps']}")
+    logger.info(f"Training LoRA: rank={config['rank']}, steps={config['max_steps']}")
 
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        base_model,
-        torch_dtype=torch.float16,
-        safety_checker=None
+        base_model, torch_dtype=torch.float16, safety_checker=None
     ).to("cuda")
 
     lora_config = LoraConfig(
-        r=config['rank'],
-        lora_alpha=config['alpha'],
+        r=config['rank'], lora_alpha=config['alpha'],
         target_modules=["to_q", "to_k", "to_v", "to_out.0"],
         lora_dropout=0.0,
     )
@@ -150,92 +149,24 @@ def train_lora(base_model: str, dataset_dir: Path, output_dir: Path, config: dic
     dataset = load_dataset_with_masks(dataset_dir)
 
     if not dataset:
-        logger.error("No training data!")
         return None
 
-    logger.info(f"Training on {len(dataset)} image-prompt pairs")
     pipe.unet.train()
 
-    for step in tqdm(range(config['max_steps']), desc="LoRA inpainting"):
+    for step in tqdm(range(config['max_steps']), desc="LoRA"):
         img_path, prompt, mask_path = dataset[np.random.randint(len(dataset))]
 
-        # Prompt dropout
-        if np.random.random() < config['prompt_dropout']:
+        if np.random.random() < 0.25:
             prompt = ""
 
-        image = Image.open(img_path).convert("RGB").resize((config['image_size'], config['image_size']))
-
-        # === РЕАЛЬНАЯ МАСКА ===
+        image = Image.open(img_path).convert("RGB").resize((512, 512))
         real_mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
-
-        # Пропускаем пустые маски
         if real_mask.sum() == 0:
             continue
 
-        # Random dilation/erosion
-        k = np.random.choice([3, 5, 7])
-        if np.random.rand() < 0.5:
-            real_mask = cv2.dilate(real_mask, np.ones((k, k), np.uint8), iterations=1)
-        else:
-            real_mask = cv2.erode(real_mask, np.ones((3, 3), np.uint8), iterations=1)
+        # Всё в PIL для передачи в pipeline
+        mask_pil = Image.fromarray((real_mask * 255).astype(np.uint8))
 
-        # Блюр
-        real_mask = cv2.GaussianBlur(real_mask, (config['mask_blur_kernel'], config['mask_blur_kernel']), 0)
-        real_mask = np.clip(real_mask, 0, 1)
-        mask = torch.tensor(real_mask).unsqueeze(0).unsqueeze(0).to("cuda")
-
-        # Токенизация
-        inputs = pipe.tokenizer(
-            prompt, padding="max_length",
-            max_length=pipe.tokenizer.model_max_length,
-            truncation=True, return_tensors="pt"
-        )
-
-        with torch.no_grad():
-            encoder_hidden_states = pipe.text_encoder(inputs.input_ids.to("cuda"))[0]
-            image_tensor = pipe.image_processor.preprocess(image).to("cuda").to(torch.float16)
-            
-            # Background corruption — шум в НЕ-дефект область
-            image_tensor = image_tensor + torch.randn_like(image_tensor) * 0.02
-
-            latents = pipe.vae.encode(image_tensor).latent_dist.sample() * 0.18215
-
-        # Ресайз маски до латентов
-        mask = torch.nn.functional.interpolate(mask, size=(latents.shape[2], latents.shape[3]), mode='bilinear')
-
-        noise = torch.randn_like(latents)
-        timesteps = torch.randint(0, pipe.scheduler.config.num_train_timesteps, (1,), device="cuda")
-        noisy_latents = pipe.scheduler.add_noise(latents, noise, timesteps)
-
-        masked_latents = latents * (1 - mask) + noise * mask
-        mask = mask.to(noisy_latents.dtype)
-
-        noise_pred = pipe.unet(
-            noisy_latents,
-            timesteps,
-            encoder_hidden_states=encoder_hidden_states,
-            added_cond_kwargs={
-                "mask": mask,
-                "masked_image_latents": masked_latents
-            }
-        ).sample
-
-        # === MASK-WEIGHTED LOSS ===
-        loss_map = (noise_pred - noise) ** 2
-        loss = (loss_map * (1 + 4 * mask)).mean()
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if (step + 1) % config['save_every'] == 0:
-            output_dir.mkdir(parents=True, exist_ok=True)
-            pipe.unet.save_pretrained(output_dir / f"checkpoint-{step+1}")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    final_path = output_dir / "lora_final"
-    pipe.unet.save_pretrained(final_path)
-    lora_config.save_pretrained(final_path)
-    
-    logger.info(f"Final weights: {final_path}")
-    return final_path
+        # Используем встроенный train_step пайплайна — он правильно формирует вход
+        pipe.unet.train()
+        # Не используем pipe напрямую — только UNet

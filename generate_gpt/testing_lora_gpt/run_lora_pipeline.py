@@ -37,8 +37,6 @@ def log_tensorboard_metrics(ltdetr_dir: Path):
         event_acc.Reload()
 
         tags = event_acc.Tags().get('scalars', [])
-        logger.info(f"Found {len(tags)} scalar tags in TensorBoard log")
-
         for tag in tags:
             events = event_acc.Scalars(tag)
             for event in events:
@@ -46,7 +44,7 @@ def log_tensorboard_metrics(ltdetr_dir: Path):
 
         logger.info(f"Logged {len(tags)} metrics from TensorBoard")
     except ImportError:
-        logger.warning("tensorboard not installed — skipping TensorBoard metrics")
+        logger.warning("tensorboard not installed")
     except Exception as e:
         logger.warning(f"Failed to parse TensorBoard logs: {e}")
 
@@ -62,26 +60,14 @@ def main():
     results_dir = Path(paths['results_dir'])
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    mlflow.set_tracking_uri("file:///app/mlruns")
-    mlflow.set_experiment("lora_finetune")
-
     mlflow_cfg = cfg['mlflow']
     mlflow.set_tracking_uri(mlflow_cfg['tracking_uri'])
     mlflow.set_experiment(mlflow_cfg['experiment_name'])
 
     with mlflow.start_run(run_name=mlflow_cfg['run_name']):
-        # === 1. LoRA обучение ===
-        logger.info("=" * 60)
-        logger.info("Step 1/4: Training LoRA on real defects")
-
         mlflow.log_params({
-            # Generator
-            'gen_strength_small_min': cfg['generation']['strength_small_min'],
-            'gen_strength_small_max': cfg['generation']['strength_small_max'],
-            'gen_strength_medium_min': cfg['generation']['strength_medium_min'],
-            'gen_strength_medium_max': cfg['generation']['strength_medium_max'],
-            'gen_strength_large_min': cfg['generation']['strength_large_min'],
-            'gen_strength_large_max': cfg['generation']['strength_large_max'],
+            'gen_strength_min': cfg['generation']['strength_min'],
+            'gen_strength_max': cfg['generation']['strength_max'],
             'gen_mask_blur_kernel': cfg['generation']['mask_blur_kernel'],
             'gen_sd_guidance_scale': cfg['generation']['sd_guidance_scale'],
             'gen_sd_steps': cfg['generation']['sd_steps'],
@@ -89,23 +75,28 @@ def main():
             'gen_edge_blur_kernel': cfg['generation']['edge_blur_kernel'],
             'gen_high_freq_alpha': cfg['generation']['high_freq_alpha'],
             'gen_variants': cfg['generation']['variants'],
-            # LoRA
+            'gen_clean_background_ratio': cfg['generation']['clean_background_ratio'],
+            'gen_jitter_bbox': cfg['generation']['jitter_bbox'],
+            'gen_apply_affine': cfg['generation']['apply_affine'],
             'lora_rank': cfg['lora']['rank'],
             'lora_alpha': cfg['lora']['alpha'],
             'lora_max_steps': cfg['lora']['max_steps'],
             'lora_learning_rate': cfg['lora']['learning_rate'],
-            # LT-DETR
             'ltdetr_max_steps': cfg['ltdetr']['max_steps'],
             'ltdetr_lr': cfg['ltdetr']['lr'],
             'ltdetr_batch_size': cfg['ltdetr']['batch_size'],
         })
+
+        # === 1. LoRA обучение ===
+        logger.info("=" * 60)
+        logger.info("Step 1/4: Training LoRA on real defects")
 
         lora_dir = results_dir / "lora"
         num_samples = prepare_lora_dataset(
             real_train, lora_dir / "dataset",
             cfg['generation']['class_labels'],
             cfg['generation']['prompt_templates'],
-            rle_csv=real_train / "train_rle.csv"  # ← добавить
+            rle_csv=real_train / "train_rle.csv"
         )
 
         if num_samples < 10:
@@ -140,10 +131,6 @@ def main():
 
         mlflow.log_metric("synthetic_images", total)
 
-        # Вместо этого — указать готовые пути:
-        # lora_weights_dir = "/app/data/results/lora_test/lora/weights/lora_final"
-        # synth_dir = Path("/app/data/results/lora_test/synthetic")
-
         # === 3. Подготовка датасета ===
         logger.info("=" * 60)
         logger.info("Step 3/4: Preparing dataset (real + synthetic)")
@@ -168,8 +155,7 @@ def main():
                     lbl_path = src_l / f"{img_path.stem}.txt"
                     if lbl_path.exists():
                         shutil.copy2(lbl_path, ds_dir / split / "labels" / lbl_path.name)
-        
-        nc=cfg['dataset']['nc'],
+
         names = {0: 'defect_1', 1: 'defect_2', 2: 'defect_3', 3: 'defect_4'}
         data_yaml = ds_dir / "data.yaml"
         with open(data_yaml, 'w') as f:
@@ -198,14 +184,12 @@ def main():
             batch_size=cfg['ltdetr']['batch_size']
         )
 
-        # Логи
         train_log = ltdetr_dir / "train.log"
         if train_log.exists():
             mlflow.log_artifact(str(train_log), "training_logs")
 
         log_tensorboard_metrics(ltdetr_dir)
 
-        # Финальная оценка
         logger.info("Evaluating on test set...")
         if train_result.get('model_path'):
             metrics = evaluate_model(

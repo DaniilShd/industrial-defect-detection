@@ -16,8 +16,6 @@ from peft import LoraConfig, get_peft_model
 
 logger = logging.getLogger(__name__)
 
-USE_MERGED_LORA = False
-
 
 class SDDefectGeneratorLoRA:
     def __init__(self, config, lora_weights_path: str = None, device: str = "cuda"):
@@ -28,18 +26,18 @@ class SDDefectGeneratorLoRA:
         self.config = config
 
         from diffusers import StableDiffusionInpaintPipeline, DDIMScheduler
-        from peft import PeftModel
 
         torch_dtype = torch.float16 if device == "cuda" else torch.float32
 
         logger.info("Loading SD Inpainting...")
 
         self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
-            "runwayml/stable-diffusion-inpainting",
-            torch_dtype=torch_dtype,
-            safety_checker=None,
-            requires_safety_checker=False
-        )
+    "runwayml/stable-diffusion-inpainting",
+    torch_dtype=torch_dtype,
+    safety_checker=None,
+    requires_safety_checker=False,
+    local_files_only=True
+)
 
         try:
             self.pipe.enable_vae_tiling()
@@ -47,38 +45,33 @@ class SDDefectGeneratorLoRA:
         except:
             pass
 
-        # ✅ xformers — чище текстуры
         try:
             self.pipe.enable_xformers_memory_efficient_attention()
             logger.info("✅ xformers enabled")
         except:
             pass
 
-        # ✅ Правильная загрузка LoRA
-        # ✅ Правильная загрузка LoRA
-        # sd_generator_lora.py, заменить загрузку:
-        if lora_weights_path and Path(lora_weights_path).exists():
-            from safetensors.torch import load_file
+        # Загрузка LoRA
+        # if lora_weights_path and Path(lora_weights_path).exists():
+        #     from safetensors.torch import load_file
             
-            lora_cfg = self.config['lora']
-            lora_config = LoraConfig(
-                r=lora_cfg['rank'], lora_alpha=lora_cfg['alpha'],
-                target_modules=["to_q", "to_k", "to_v", "to_out.0"],
-            )
-            self.pipe.unet = get_peft_model(self.pipe.unet, lora_config)
+        #     lora_cfg = self.config['lora']
+        #     lora_config = LoraConfig(
+        #         r=lora_cfg['rank'], lora_alpha=lora_cfg['alpha'],
+        #         target_modules=["to_q", "to_k", "to_v", "to_out.0"],
+        #     )
+        #     self.pipe.unet = get_peft_model(self.pipe.unet, lora_config)
             
-            # Загружаем веса напрямую
-            state_dict = load_file(str(Path(lora_weights_path) / "adapter_model.safetensors"))
+        #     state_dict = load_file(str(Path(lora_weights_path) / "adapter_model.safetensors"))
             
-            # Убираем префикс base_model.model.
-            cleaned = {}
-            for k, v in state_dict.items():
-                new_k = k.replace('base_model.model.', '')
-                cleaned[new_k] = v
+        #     cleaned = {}
+        #     for k, v in state_dict.items():
+        #         new_k = k.replace('base_model.model.', '')
+        #         cleaned[new_k] = v
             
-            self.pipe.unet.load_state_dict(cleaned, strict=False)
-            self.pipe.unet.eval()
-            logger.info(f"✅ LoRA loaded: {len(cleaned)} params from safetensors")                                                      
+        #     self.pipe.unet.load_state_dict(cleaned, strict=False)
+        #     self.pipe.unet.eval()
+        #     logger.info(f"✅ LoRA loaded: {len(cleaned)} params from safetensors")
 
         if device == "cuda":
             self.pipe = self.pipe.to(device)
@@ -100,7 +93,6 @@ class SDDefectGeneratorLoRA:
         gen_cfg = self.config['generation']
         guidance = guidance + random.uniform(-gen_cfg['guidance_jitter'], gen_cfg['guidance_jitter'])
 
-        # guidance = guidance + random.uniform(-0.5, 0.5)
         generator = torch.Generator(
             device=self.device if torch.cuda.is_available() else "cpu"
         ).manual_seed(seed)
