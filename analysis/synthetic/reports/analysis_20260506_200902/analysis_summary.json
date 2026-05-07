@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-05-06T20:09:02.108566",
+  "config_file": "analysis/synthetic/config.yaml",
+  "original_dir": "/app/data/processed/balanced_defect_patches/train",
+  "synthetic_dir": "/app/data/experiment/synthetic/train",
+  "analyses": {
+    "domain_gap": {
+      "status": "completed",
+      "output_dir": "/app/analysis/synthetic/reports/analysis_20260506_200902",
+      "summary": {
+        "domain_overlap_score": 0.8500000000000001,
+        "1nn_accuracy": 0.575,
+        "mean_emd": 0.262856552668883
+      }
+    },
+    "class_distribution": {
+      "status": "completed",
+      "output_dir": "/app/analysis/synthetic/reports/analysis_20260506_200902",
+      "summary": {
+        "total_bboxes": 6708,
+        "images_with_defects": 3807,
+        "empty_images": 0,
+        "class_distribution": {
+          "defect_type_1": {
+            "class_id": 0,
+            "bbox_count": 2373,
+            "percentage": 35.38,
+            "image_count": 1131,
+            "avg_bboxes_per_image": 2.1
+          },
+          "defect_type_2": {
+            "class_id": 1,
+            "bbox_count": 738,
+            "percentage": 11.0,
+            "image_count": 555,
+            "avg_bboxes_per_image": 1.33
+          },
+          "defect_type_3": {
+            "class_id": 2,
+            "bbox_count": 1917,
+            "percentage": 28.58,
+            "image_count": 1233,
+            "avg_bboxes_per_image": 1.55
+          },
+          "defect_type_4": {
+            "class_id": 3,
+            "bbox_count": 1680,
+            "percentage": 25.04,
+            "image_count": 1110,
+            "avg_bboxes_per_image": 1.51
+          }
+        }
+      }
+    }
+  }
+}

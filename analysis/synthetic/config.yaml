@@ -4,7 +4,7 @@
 
 # Пути
 paths:
-  synthetic_dir: "/app/data/results/ablation/abl_042_r0/synthetic"
+  synthetic_dir: "/app/data/experiment/synthetic/train"
   original_dir: "/app/data/processed/balanced_defect_patches/train"
   output_dir: "/app/analysis/synthetic/reports"
   
@@ -18,7 +18,7 @@ paths:
 # DINOv2 для domain gap анализа
 dinov2:
   model_name: "facebook/dinov2-small"
-  device: "cuda"
+  device: "cpu"
   batch_size: 32
   num_samples: 500
   nn_test_samples: 200

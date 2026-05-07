@@ -380,7 +380,7 @@ class DomainGapAnalyzer:
             tsne = TSNE(
                 n_components=2, 
                 perplexity=viz_config.tsne.get('perplexity', 30),
-                n_iter=viz_config.tsne.get('n_iter', 1000),
+                max_iter=viz_config.tsne.get('max_iter', 1000),     # ← правильно
                 random_state=self.config.dinov2.random_seed
             )
             

@@ -26,11 +26,18 @@ datasets:
     type: "mixed"
 
 training:
-  model: "dinov2/vits14-ltdetr"
-  max_steps: 7000
+  model: "dinov3/convnext-large-ltdetr-coco"
+  gradient_accumulation_steps: 2
+  max_steps:
+    real_baseline: 3200              # 20 × 160.1
+    real_augmented: 12720            # 20 × 636
+    synthetic_full: 19035            # 20 × 951.75
+    real_plus_synthetic_aug: 12720   # 20 × 636
+    mixed_full: 31755                # 20 × 1587.75
   val_every_steps: 500
   lr: 0.0001
-  batch_size: 8
+  batch_size: 4
+  eval_conf_threshold: 0.001
   conf_threshold: 0.25
 
 ssl:
@@ -38,7 +45,7 @@ ssl:
   epochs: 10
   batch_size: 32
 
-seeds: [42, 123, 777]
+seeds:  [42] #[42, 123, 777]
 
 statistics:
   alpha: 0.05

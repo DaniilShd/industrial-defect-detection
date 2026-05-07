@@ -13,7 +13,7 @@ experiment:
 paths:
   # Входные данные
   real_dataset: "/app/data/processed/balanced_defect_patches"  # train/val/test
-  best_synthetic: "/app/data/results/ablation/best_synthetic"  # только train
+  best_synthetic: "data/results/ablation/abl_021_r0/synthetic"  # только train
   
   # Выходные данные
   output_dir: "/app/data/experiment"  # Все датасеты здесь

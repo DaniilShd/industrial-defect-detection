@@ -1,0 +1,47 @@
+{
+  "descriptive": {
+    "real_baseline_frozen": {
+      "mean": 0.4461338051821656,
+      "std": NaN,
+      "sem": NaN,
+      "min": 0.4461338051821656,
+      "max": 0.4461338051821656,
+      "n": 1
+    },
+    "real_augmented_frozen": {
+      "mean": 0.47397197368812194,
+      "std": NaN,
+      "sem": NaN,
+      "min": 0.47397197368812194,
+      "max": 0.47397197368812194,
+      "n": 1
+    },
+    "synthetic_full_frozen": {
+      "mean": 0.2862784852382646,
+      "std": NaN,
+      "sem": NaN,
+      "min": 0.2862784852382646,
+      "max": 0.2862784852382646,
+      "n": 1
+    },
+    "real_plus_synthetic_aug_frozen": {
+      "mean": 0.3930673948703123,
+      "std": NaN,
+      "sem": NaN,
+      "min": 0.3930673948703123,
+      "max": 0.3930673948703123,
+      "n": 1
+    },
+    "mixed_full_frozen": {
+      "mean": 0.44224619510555446,
+      "std": NaN,
+      "sem": NaN,
+      "min": 0.44224619510555446,
+      "max": 0.44224619510555446,
+      "n": 1
+    }
+  },
+  "anova": {},
+  "pairwise": [],
+  "significant_pairs": []
+}

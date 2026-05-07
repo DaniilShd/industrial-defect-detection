@@ -115,6 +115,7 @@ def create_data_yaml(
         class_names = {i: f"defect{i+1}" for i in range(num_classes)}
     
     data_config = {
+        'format': 'yolo',  # ← ВОТ ЭТО ДОБАВИТЬ
         'path': str(dataset_path.absolute()),
         'train': train_dir,
         'val': val_dir,

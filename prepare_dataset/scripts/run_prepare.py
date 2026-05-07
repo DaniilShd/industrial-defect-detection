@@ -17,16 +17,17 @@ from pathlib import Path
 import mlflow
 import yaml
 
+# Добавляем scripts в PYTHONPATH
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts import (
-    copy_real,
-    copy_synthetic,
-    augment_synthetic,
-    augment_real,
-    merge_datasets,
-    validate_resize,
-)
+# Импортируем из конкретных файлов
+from scripts import copy_real
+from scripts import copy_synthetic
+from scripts import augment_synthetic
+from scripts import augment_real
+from scripts import merge_datasets
+from scripts import validate_resize
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

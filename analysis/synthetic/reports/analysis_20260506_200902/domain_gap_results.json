@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-05-06T20:09:02.108576",
+  "config": {
+    "model": "facebook/dinov2-small",
+    "device": "cpu",
+    "num_samples": 500
+  },
+  "original_statistics": {
+    "mean": 0.04703029245138168,
+    "std": 2.3174540996551514,
+    "min": -9.695115089416504,
+    "max": 10.832484245300293,
+    "median": 0.07621008157730103,
+    "skewness": -0.017421014454003125,
+    "kurtosis": 3.1797732372172254,
+    "variance": 5.370593070983887,
+    "l2_norm_mean": 45.41157531738281,
+    "l2_norm_std": 0.9726971983909607,
+    "feature_dim": 384,
+    "num_samples": 500
+  },
+  "synthetic_statistics": {
+    "mean": 0.04235994070768356,
+    "std": 2.3150150775909424,
+    "min": -10.501066207885742,
+    "max": 12.076990127563477,
+    "median": 0.07506128400564194,
+    "skewness": -0.03815167156264854,
+    "kurtosis": 3.1817202153875233,
+    "variance": 5.359294891357422,
+    "l2_norm_mean": 45.36254119873047,
+    "l2_norm_std": 0.9476930499076843,
+    "feature_dim": 384,
+    "num_samples": 500
+  },
+  "similarity_metrics": {
+    "centroid_distance": 5.623719215393066,
+    "centroid_cosine_similarity": 0.98519072959988,
+    "mean_intra_domain_distance_A": 0.1931574255892752,
+    "mean_intra_domain_distance_B": 0.18488463447983733,
+    "mean_inter_domain_distance": 0.18769878308749344,
+    "domain_gap_ratio": 0.9930047102332041,
+    "1nn_domain_accuracy": 0.575,
+    "1nn_expected_for_identical": 0.5,
+    "domain_overlap_score": 0.8500000000000001,
+    "domain_silhouette_score": -0.03528106068500561,
+    "intra_domain_variance_A": 0.0,
+    "intra_domain_variance_B": 0.0
+  },
+  "emd_metrics": {
+    "mean_emd": 0.262856552668883,
+    "std_emd": 0.15149280317043903,
+    "max_emd": 0.9093890275475569,
+    "min_emd": 0.05427764165960253,
+    "median_emd": 0.22654822208418046,
+    "top10_unstable_channels": [
+      193,
+      148,
+      375,
+      178,
+      141,
+      188,
+      286,
+      66,
+      179,
+      209
+    ],
+    "bottom10_stable_channels": [
+      7,
+      192,
+      64,
+      79,
+      26,
+      227,
+      336,
+      253,
+      382,
+      86
+    ],
+    "percentile_95_emd": 0.5679891249464515,
+    "percentile_75_emd": 0.3453670627225365
+  },
+  "visualization": {
+    "pca": {
+      "explained_variance_ratio": [
+        12.287240028381348,
+        8.760109901428223
+      ],
+      "total_explained_variance": 21.04734992980957,
+      "saved_path": "/app/analysis/synthetic/reports/analysis_20260506_200902/visualizations/pca_visualization.png"
+    },
+    "tsne": {
+      "perplexity": 30,
+      "saved_path": "/app/analysis/synthetic/reports/analysis_20260506_200902/visualizations/tsne_visualization.png"
+    }
+  }
+}

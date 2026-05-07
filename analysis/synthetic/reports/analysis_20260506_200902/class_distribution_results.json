@@ -1,0 +1,68 @@
+{
+  "total_images": 3807,
+  "total_labels": 3807,
+  "images_with_defects": 3807,
+  "empty_images": 0,
+  "total_bboxes": 6708,
+  "avg_bboxes_per_image": 1.7620173364854217,
+  "images_with_multiple_classes": 222,
+  "class_distribution": {
+    "defect_type_1": {
+      "class_id": 0,
+      "bbox_count": 2373,
+      "percentage": 35.38,
+      "image_count": 1131,
+      "avg_bboxes_per_image": 2.1
+    },
+    "defect_type_2": {
+      "class_id": 1,
+      "bbox_count": 738,
+      "percentage": 11.0,
+      "image_count": 555,
+      "avg_bboxes_per_image": 1.33
+    },
+    "defect_type_3": {
+      "class_id": 2,
+      "bbox_count": 1917,
+      "percentage": 28.58,
+      "image_count": 1233,
+      "avg_bboxes_per_image": 1.55
+    },
+    "defect_type_4": {
+      "class_id": 3,
+      "bbox_count": 1680,
+      "percentage": 25.04,
+      "image_count": 1110,
+      "avg_bboxes_per_image": 1.51
+    }
+  },
+  "bbox_size_statistics": {
+    "mean": 0.108632583650993,
+    "std": 0.1609450239350634,
+    "min": 0.0009765625,
+    "max": 0.9922032568360001,
+    "median": 0.043250909668,
+    "by_class": {
+      "defect_type_1": {
+        "mean": 0.02797842248118626,
+        "std": 0.036344500297611576,
+        "median": 0.017028722656
+      },
+      "defect_type_2": {
+        "mean": 0.05699173464892005,
+        "std": 0.037061145525775926,
+        "median": 0.047394013671999996
+      },
+      "defect_type_3": {
+        "mean": 0.13928717534365623,
+        "std": 0.17202672560744994,
+        "median": 0.07580584374999999
+      },
+      "defect_type_4": {
+        "mean": 0.21026259480852025,
+        "std": 0.2131436263900849,
+        "median": 0.136619791504
+      }
+    }
+  }
+}

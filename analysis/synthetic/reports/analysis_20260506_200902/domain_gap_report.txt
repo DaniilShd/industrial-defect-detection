@@ -1,0 +1,60 @@
+================================================================================
+🔬 DOMAIN GAP ANALYSIS REPORT
+================================================================================
+Generated: 2026-05-06T20:09:02.108576
+Model: facebook/dinov2-small
+Device: cpu
+
+--------------------------------------------------------------------------------
+1. FEATURE DISTRIBUTION STATISTICS
+--------------------------------------------------------------------------------
+Metric                         Original        Synthetic       Diff %         
+--------------------------------------------------------------------------------
+mean                           0.047030        0.042360        9.93           %
+std                            2.317454        2.315015        0.11           %
+variance                       5.370593        5.359295        0.21           %
+l2_norm_mean                   45.411575       45.362541       0.11           %
+
+--------------------------------------------------------------------------------
+2. DOMAIN SIMILARITY METRICS
+--------------------------------------------------------------------------------
+  Centroid Cosine Similarity:              0.9852
+  1-NN Domain Accuracy:                    0.5750 (0.50 = indistinguishable)
+  Domain Overlap Score:                    0.8500 (1.00 = complete overlap)
+  Domain Gap Ratio:                        0.9930 (1.00 = identical)
+  Domain Silhouette Score:                 -0.0353 (<0 = overlapped)
+  Intra-domain Distance (A):               0.193157
+  Intra-domain Distance (B):               0.184885
+  Inter-domain Distance:                   0.187699
+
+--------------------------------------------------------------------------------
+3. EARTH MOVER'S DISTANCE (PER CHANNEL)
+--------------------------------------------------------------------------------
+  Mean EMD:                      0.262857
+  Median EMD:                    0.226548
+  95th Percentile EMD:           0.567989
+  Max EMD:                       0.909389
+  Top 10 Unstable Channels:      [193, 148, 375, 178, 141, 188, 286, 66, 179, 209]
+
+--------------------------------------------------------------------------------
+4. QUALITY INTERPRETATION
+--------------------------------------------------------------------------------
+
+  Synthetic Quality: 🟡 GOOD
+  Domain Overlap Score: 0.850/1.000
+  1-NN accuracy (closer to 0.5 is better): 0.575
+
+  • Synthetic data is close to original with minor shift
+  • Distributions mostly overlap
+  • 1-NN classifier shows moderate separability (55-65%)
+  • Recommendation: Use synthetic with weight 0.3-0.5
+
+================================================================================
+HOW TO READ METRICS:
+  Domain Overlap Score: 1.0 = perfect, 0.0 = completely different domains
+  1-NN accuracy: 0.50 = domains indistinguishable (good)
+               0.75+ = domains easily separable (bad)
+  Cosine similarity: >0.95 = excellent, <0.85 = poor
+  Domain Gap Ratio: ~1.0 = identical domains, >2.0 = strong gap
+  Silhouette Score: <0 = domains overlap, >0.5 = well separated
+================================================================================
