@@ -4,9 +4,9 @@ experiment:
   author: "магистерская диссертация"
 
 paths:
-  experiment_data: "/app/data/experiment/datasets"
-  results_dir: "/app/experiments/reports"
-  models_dir: "/app/experiments/models"
+  experiment_data: "/app/data/experiment_v2/datasets"
+  results_dir: "/app/experiment_v2/reports"
+  models_dir: "/app/experiment_v2/models"
 
 datasets:
   real_baseline:
@@ -29,23 +29,23 @@ training:
   model: "dinov3/convnext-large-ltdetr-coco"
   gradient_accumulation_steps: 2
   max_steps:
-    real_baseline: 3200              # 20 × 160.1
-    real_augmented: 12720            # 20 × 636
-    synthetic_full: 19035            # 20 × 951.75
-    real_plus_synthetic_aug: 12720   # 20 × 636
-    mixed_full: 31755                # 20 × 1587.75
+    real_baseline: 1600              # 10 эпох
+    real_augmented: 6360             # 10 эпох
+    synthetic_full: 9500             # 10 эпох
+    real_plus_synthetic_aug: 6360    # 10 эпох
+    mixed_full: 15880                # 10 эпох
   val_every_steps: 500
   lr: 0.0001
   batch_size: 4
   eval_conf_threshold: 0.001
   conf_threshold: 0.25
 
+# SSL настройки (используются в exp3_ssl)
 ssl:
-  unlabeled_data: "/app/data/unlabeled"
   epochs: 10
   batch_size: 32
 
-seeds:  [42] #[42, 123, 777]
+seeds: [42]  # [42, 123, 777] для стат. значимости
 
 statistics:
   alpha: 0.05

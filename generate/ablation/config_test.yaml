@@ -1,15 +1,15 @@
 # ============================================================
-# ABLATION STUDY — СЕТКА ГИПЕРПАРАМЕТРОВ
+# ABLATION STUDY — ТЕСТОВЫЙ КОНФИГ (1 комбинация, 100 шагов)
 # ============================================================
 
 experiment:
-  name: "ablation_synthetic"
-  description: "Поиск оптимальных параметров генерации синтетики (дефект + фон)"
+  name: "ablation_test"
+  description: "TEST - проверка пайплайна"
 
 # Фиксированные параметры обучения LT-DETR
 ltdetr:
-  max_steps: 5500
-  val_every_steps: 1000  # 🔥 Валидация каждые 500 шагов
+  max_steps: 100          # Тест: всего 100 шагов (~2 минуты)
+  val_every_steps: 50     # Валидация каждые 50 шагов
   lr: 0.0001
   batch_size: 8
   freeze_backbone: true
@@ -20,43 +20,37 @@ paths:
   real_train: "/app/data/processed/balanced_defect_patches_v2/train"
   real_val: "/app/data/processed/balanced_defect_patches_v2/val"
   real_test: "/app/data/processed/balanced_defect_patches_v2/test"
-  results_dir: "/app/data/results_v2/ablation"
+  results_dir: "/app/data/results_v2/ablation_test"
 
 # ============================================================
-# СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
+# СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ (1 комбинация для теста)
 # ============================================================
 grid:
   sd_defect_strength:
     - 0.15
-    - 0.25
 
   sd_background_strength:
     - 0.05
-    - 0.12
 
   high_freq_alpha:
     - 0.2
-    - 0.4
 
   variants:
-    - 2
-    - 3
+    - 1
 
   balance_strategy:
     - "proportional"
 
   repeats: 1
-  
-  # Всего: 3 × 2 × 2 × 2 × 1 × 2 = 48 запусков
 
 # ============================================================
 # ФИКСИРОВАННЫЕ ПАРАМЕТРЫ ГЕНЕРАЦИИ
 # ============================================================
 fixed_generation:
   random_seed: 42
-  sd_steps: 20
+  sd_steps: 5              # Тест: меньше шагов для скорости
   sd_guidance_scale: 1.8
-  bg_sd_steps: 20
+  bg_sd_steps: 5           # Тест: меньше шагов
   bg_guidance_scale: 1.5
   
   defect_prompt: "metal surface defect, scratch, industrial steel texture, metallic sheen, brushed metal"
@@ -74,21 +68,8 @@ fixed_generation:
   scale_factors:
     - [1.05, 1.0]
     - [1.0, 1.05]
-    - [1.1, 1.0]
-    - [1.0, 1.1]
-    - [1.15, 1.0]
-    - [1.0, 1.15]
-    - [1.1, 1.05]
-    - [1.05, 1.1]
-    - [1.2, 1.0]
-    - [1.0, 1.2]
-    - [1.15, 1.15]
-    - [1.3, 1.0]
-    - [1.0, 1.3]
-    - [1.05, 1.05]
-    - [1.1, 1.1]
 
 # MLflow
 mlflow:
   tracking_uri: "file:///app/mlruns"
-  experiment_name: "ablation_synthetic"
+  experiment_name: "ablation_test"

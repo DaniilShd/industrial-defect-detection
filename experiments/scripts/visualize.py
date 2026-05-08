@@ -17,35 +17,31 @@ def create_all_visualizations(all_results: list, stats: dict, config: dict, outp
     if not completed:
         return
 
+    # Группируем по датасету + стратегии
     groups = defaultdict(list)
     for r in completed:
-        groups[r['dataset_name']].append(r['test_map50'])
+        key = f"{r['dataset_name']}_{r['strategy_name']}"
+        groups[key].append(r['test_map50'])
 
     names = sorted(groups.keys())
-
-    fig, ax = plt.subplots(figsize=(12, 6))
     data = [groups[n] for n in names]
+    
+    fig, ax = plt.subplots(figsize=(16, 6))
     bp = ax.boxplot(data, labels=names, patch_artist=True)
     for patch, name in zip(bp['boxes'], names):
-        patch.set_facecolor(get_color(name))
+        if 'frozen' in name:
+            patch.set_facecolor('#3498DB')
+        elif 'finetune' in name:
+            patch.set_facecolor('#E74C3C')
+        elif 'ssl' in name:
+            patch.set_facecolor('#2ECC71')
+    
     ax.set_ylabel('Test mAP@50')
-    ax.set_title('Влияние состава данных на качество детекции')
+    ax.set_title('Сравнение стратегий обучения по датасетам')
     ax.tick_params(axis='x', rotation=45)
     ax.grid(True, alpha=0.3, axis='y')
     plt.tight_layout()
     plt.savefig(output_dir / 'boxplot_map50.png', dpi=300)
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    means = [np.mean(groups[n]) for n in names]
-    sems = [np.std(groups[n], ddof=1) / np.sqrt(len(groups[n])) for n in names]
-    colors = [get_color(n) for n in names]
-    ax.bar(names, means, yerr=sems, capsize=5, color=colors, edgecolor='black')
-    ax.set_ylabel('Mean mAP@50 ± SEM')
-    ax.tick_params(axis='x', rotation=45)
-    ax.grid(True, alpha=0.3, axis='y')
-    plt.tight_layout()
-    plt.savefig(output_dir / 'bar_chart_map50.png', dpi=300)
     plt.close()
 
 

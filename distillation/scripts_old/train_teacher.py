@@ -47,14 +47,6 @@ def _ssl_pretrain(config: dict, models_dir: Path) -> Path:
 
 
 def train_teacher(config: dict, models_dir: Path) -> dict:
-    """
-    Обучает LTDETR+DINOv2 учителя.
-
-    Логика:
-    - strategy = 'frozen': backbone_freeze = True
-    - strategy = 'finetune': backbone_freeze = False
-    - strategy = 'ssl': запускает SSL-дообучение → backbone_weights + backbone_freeze = False
-    """
     import lightly_train
 
     strategy = config['teacher']['strategy']
@@ -65,23 +57,32 @@ def train_teacher(config: dict, models_dir: Path) -> dict:
     data_config['format'] = 'yolo'
 
     out_dir = models_dir / "teacher"
-    val_every = config['teacher']['val_every_steps']
 
-    # Определяем параметры в зависимости от стратегии
+    # Определяем параметры
     model_args = {}
     if strategy == 'frozen':
         model_args['backbone_freeze'] = True
-        logger.info("Strategy: FROZEN backbone")
     elif strategy == 'finetune':
         model_args['backbone_freeze'] = False
-        logger.info("Strategy: FINETUNE backbone (end-to-end)")
     elif strategy == 'ssl':
-        ssl_backbone = _ssl_pretrain(config, models_dir)
+        # 🔥 Для ConvNeXt-Large: distillation, не DINOv2 pretrain!
+        from lightly_train import pretrain
+        ssl_out = models_dir / "ssl_pretrain"
+        unlabeled_path = Path(config['paths']['experiment_data']) / config['teacher']['dataset'] / "train" / "images"
+        
+        pretrain(
+            out=str(ssl_out),
+            data=str(unlabeled_path),
+            model="convnext_large",
+            method="distillation",
+            method_args={"teacher": "dinov2/vitl14"},
+            epochs=config['teacher'].get('ssl_epochs', 10),
+            batch_size=config['teacher'].get('ssl_batch', 32),
+            seed=42,
+            overwrite=True,
+        )
+        model_args['backbone_weights'] = str(ssl_out / "exported_models" / "exported_last.pt")
         model_args['backbone_freeze'] = False
-        model_args['backbone_weights'] = str(ssl_backbone)
-        logger.info("Strategy: SSL pretrain + backbone_weights")
-    else:
-        raise ValueError(f"Unknown strategy: {strategy}")
 
     params = {
         "out": str(out_dir),
@@ -91,35 +92,14 @@ def train_teacher(config: dict, models_dir: Path) -> dict:
         "batch_size": config['teacher']['batch_size'],
         "overwrite": True,
         "model_args": model_args,
-        "save_checkpoint_args": {"save_every_num_steps": val_every},
+        "save_checkpoint_args": {"save_every_num_steps": config['teacher']['val_every_steps']},
     }
 
-    logger.info(f"Training teacher: {config['teacher']['model']}, steps={config['teacher']['max_steps']}")
     lightly_train.train_object_detection(**params)
 
-    # Анализ переобучения
-    train_log = out_dir / "train.log"
-    val_metrics = _parse_val_metrics(train_log) if train_log.exists() else []
-
-    overfit_info = {'overfitting_detected': False, 'val_test_gap': 0.0}
-    if val_metrics:
-        logger.info(f"Val mAP50: {len(val_metrics)} rounds, best={max(v for _, v in val_metrics):.4f}")
-        if len(val_metrics) >= 3:
-            recent = [v for _, v in val_metrics[-3:]]
-            if max(recent) < max(v for _, v in val_metrics) - 0.01:
-                logger.warning("⚠️  Возможное переобучение: val-метрика падает последние раунды")
-                overfit_info = {'overfitting_detected': True, 'warning': 'val decreasing'}
-
     model_path = out_dir / "exported_models" / "exported_best.pt"
-    result = {
+    return {
         "model_path": str(model_path),
         "status": "completed",
         "strategy": strategy,
-        "val_metrics": [{"step": s, "map50": v} for s, v in val_metrics],
-        "overfitting": overfit_info,
     }
-
-    with open(out_dir / "training_info.json", 'w') as f:
-        json.dump(result, f, indent=2, default=str)
-
-    return result

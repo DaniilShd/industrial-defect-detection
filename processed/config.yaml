@@ -7,9 +7,9 @@ paths:
   # Выходные данные
   defect_patches_dir: "data/processed/defect_patches"
   clean_patches_dir: "data/processed/clean_patches"
-  balanced_defect_patches_dir: "data/processed/balanced_defect_patches"
+  balanced_defect_patches_dir: "data/processed/balanced_defect_patches_v2"
   balanced_clean_patches_dir: "data/processed/balanced_clean_patches"
-  reports_dir: "generation/reports/patches"
+  reports_dir: "data/processed/reports/patches"
   yolo_images_subdir: "images/train"
   yolo_labels_subdir: "labels/train"
 

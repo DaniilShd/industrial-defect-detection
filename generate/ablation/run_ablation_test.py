@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def load_ablation_config(config_path: str = "config.yaml") -> dict:
+def load_ablation_config(config_path: str = "config_test.yaml") -> dict:
     """Загрузка конфигурации ablation study."""
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
@@ -108,7 +108,7 @@ def setup_dataset_dir(run_dir: Path, real_train: Path, real_val: Path,
 
 
 def main():
-    config_path = Path(__file__).parent / "config.yaml"
+    config_path = Path(__file__).parent / "config_test.yaml"
     cfg = load_ablation_config(str(config_path))
 
     grid = cfg['grid']
@@ -292,11 +292,11 @@ def main():
             finally:
                 # Очистка
                 torch.cuda.empty_cache()
-                # for temp_dir in ['dataset', 'synthetic', 'ltdetr']:
-                #     temp_path = run_dir / temp_dir
-                #     if temp_path.exists():
-                #         shutil.rmtree(temp_path, ignore_errors=True)
-                #         logger.debug(f"Cleaned up {temp_path}")
+                for temp_dir in ['dataset', 'synthetic', 'ltdetr']:
+                    temp_path = run_dir / temp_dir
+                    if temp_path.exists():
+                        shutil.rmtree(temp_path, ignore_errors=True)
+                        logger.debug(f"Cleaned up {temp_path}")
     
     # =============================================
     # Финальная сводка

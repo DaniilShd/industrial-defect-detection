@@ -38,18 +38,38 @@ def evaluate_and_measure(model_path: str, model_name: str, config: dict,
                       config['fps']['device'])
     params = count_parameters(model)
 
-    return {
+    result = {
         'model': model_name,
         'map50': metrics['mAP_50'],
         'map75': metrics['mAP_75'],
         'map50_95': metrics['mAP_50_95'],
-        **{f"{model_name}_{k}": v for k, v in metrics.items() if k.startswith('cls')},
         'fps': fps['fps'],
         'latency_ms': fps['latency_ms'],
         'params_M': params['params_M'],
         'size_MB': params['size_MB'],
         'model_path': model_path,
     }
+    # Per-class метрики
+    for k, v in metrics.items():
+        if k.startswith('cls'):
+            result[f"{model_name}_{k}"] = v
+    return result
+
+
+def log_metrics_for_model(result: dict, prefix: str):
+    """Логирует основные метрики модели в MLflow."""
+    mlflow.log_metrics({
+        f'{prefix}_map50': result['map50'],
+        f'{prefix}_map75': result['map75'],
+        f'{prefix}_map50_95': result['map50_95'],
+        f'{prefix}_fps': result['fps'],
+        f'{prefix}_params_M': result['params_M'],
+        f'{prefix}_size_MB': result['size_MB'],
+    })
+    # Per-class метрики
+    for k, v in result.items():
+        if k.startswith(f'{prefix}_cls'):
+            mlflow.log_metric(k, v)
 
 
 def log_training_info(result: dict, model_name: str):
@@ -81,7 +101,6 @@ def get_or_train_teacher(config: dict, config_path: Path, models_dir: Path,
         mlflow.log_param("strategy", strategy)
         mlflow.log_param("dataset", config['teacher']['dataset'])
         mlflow.log_param("model", config['teacher']['model'])
-        mlflow.log_params(config['teacher'])
 
         result = train_teacher(config, models_dir)
 
@@ -91,7 +110,6 @@ def get_or_train_teacher(config: dict, config_path: Path, models_dir: Path,
         teacher_path = result['model_path']
         mlflow.log_param("teacher_model_path", teacher_path)
 
-        # Логируем overfitting
         log_training_info(result, 'teacher')
 
         # Логируем train.log
@@ -99,7 +117,7 @@ def get_or_train_teacher(config: dict, config_path: Path, models_dir: Path,
         if train_log.exists():
             mlflow.log_artifact(str(train_log))
 
-        # Сохраняем путь в конфиг
+        # Сохраняем путь в конфиг для будущих запусков
         config['teacher']['weights_path'] = teacher_path
         with open(config_path, 'w') as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
@@ -109,6 +127,36 @@ def get_or_train_teacher(config: dict, config_path: Path, models_dir: Path,
                                  test_images, test_labels)
 
     return teacher_path, r
+
+
+def train_and_evaluate_student(train_fn, model_name: str, config: dict,
+                               models_dir: Path, test_images: Path,
+                               test_labels: Path, teacher_path: str = None) -> dict:
+    """Обучает и оценивает одну модель-ученика."""
+    with mlflow.start_run(run_name=model_name, nested=True):
+        mlflow.log_param("model", model_name)
+        
+        # Обучение
+        if teacher_path:
+            result = train_fn(config, models_dir, teacher_path)
+        else:
+            result = train_fn(config, models_dir)
+        
+        if result['status'] != 'completed':
+            logger.error(f"❌ Обучение {model_name} не завершилось")
+            return None
+        
+        log_training_info(result, model_name)
+        
+        # Оценка
+        model_path = result['model_path']
+        r = evaluate_and_measure(model_path, model_name, config,
+                                 test_images, test_labels)
+        
+        log_metrics_for_model(r, model_name)
+        mlflow.set_tag("status", "completed")
+        
+        return r
 
 
 def main():
@@ -141,34 +189,86 @@ def main():
         mlflow.log_dict(config, "config.yaml")
         mlflow.log_param("teacher_strategy", strategy)
 
-        # 1. Учитель
-        logger.info(f"=== 1/6: Teacher LTDETR+DINOv2 ({strategy}) ===")
-        teacher_path, teacher_r = get_or_train_teacher(config, config_path, models_dir,
-                                                       test_images, test_labels)
+        # =============================================
+        # 1. Учитель LTDETR + DINOv3
+        # =============================================
+        logger.info(f"\n=== 1/6: Teacher LTDETR+DINOv3 ({strategy}) ===")
+        teacher_path, teacher_r = get_or_train_teacher(
+            config, config_path, models_dir, test_images, test_labels
+        )
         all_results.append(teacher_r)
-        mlflow.log_metrics({
-            'teacher_map50': teacher_r['map50'],
-            'teacher_map75': teacher_r['map75'],
-            'teacher_map50_95': teacher_r['map50_95'],
-            'teacher_fps': teacher_r['fps'],
-            'teacher_params_M': teacher_r['params_M'],
-            'teacher_size_MB': teacher_r['size_MB'],
-        })
+        log_metrics_for_model(teacher_r, 'teacher')
 
-        # 2-6: Ученики (без изменений)
-        # ... (полный код run_all.py как в предыдущем ответе)
+        # =============================================
+        # 2. YOLOv8 Nano (без дистилляции)
+        # =============================================
+        logger.info("\n=== 2/6: YOLOv8 Nano ===")
+        r = train_and_evaluate_student(
+            train_yolo, 'yolo_nano', config, models_dir,
+            test_images, test_labels
+        )
+        if r:
+            all_results.append(r)
 
-        # Финальная таблица
+        # =============================================
+        # 3. YOLOv8 Nano + FGD
+        # =============================================
+        logger.info("\n=== 3/6: YOLOv8 Nano + FGD ===")
+        r = train_and_evaluate_student(
+            train_yolo_fgd, 'yolo_nano_fgd', config, models_dir,
+            test_images, test_labels, teacher_path
+        )
+        if r:
+            all_results.append(r)
+
+        # =============================================
+        # 4. PicoDet-S (без дистилляции)
+        # =============================================
+        logger.info("\n=== 4/6: PicoDet-S ===")
+        r = train_and_evaluate_student(
+            train_picodet, 'picodet_s', config, models_dir,
+            test_images, test_labels
+        )
+        if r:
+            all_results.append(r)
+
+        # =============================================
+        # 5. PicoDet-S + FGD
+        # =============================================
+        logger.info("\n=== 5/6: PicoDet-S + FGD ===")
+        r = train_and_evaluate_student(
+            train_picodet_fgd, 'picodet_s_fgd', config, models_dir,
+            test_images, test_labels, teacher_path
+        )
+        if r:
+            all_results.append(r)
+
+        # =============================================
+        # 6. Faster R-CNN R18 + FGD
+        # =============================================
+        logger.info("\n=== 6/6: Faster R-CNN R18 + FGD ===")
+        r = train_and_evaluate_student(
+            train_faster_rcnn, 'faster_rcnn_r18_fgd', config, models_dir,
+            test_images, test_labels, teacher_path
+        )
+        if r:
+            all_results.append(r)
+
+        # =============================================
+        # Финальная сводка
+        # =============================================
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         results_path = results_dir / f"distillation_results_{timestamp}.json"
         with open(results_path, 'w') as f:
             json.dump(all_results, f, indent=2, default=str)
         mlflow.log_artifact(str(results_path))
 
+        # Scatter plot
         create_scatter_plot(all_results, results_dir)
         for p in results_dir.glob('quality_vs_speed*.png'):
             mlflow.log_artifact(str(p))
 
+        # Итоговая таблица
         logger.info("\n" + "=" * 90)
         logger.info(f"{'Model':<25} {'mAP@50':<10} {'mAP@75':<10} {'FPS':<10} {'Params(M)':<12} {'Size(MB)':<10}")
         logger.info("-" * 80)

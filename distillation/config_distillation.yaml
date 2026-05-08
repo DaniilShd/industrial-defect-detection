@@ -1,0 +1,87 @@
+experiment:
+  name: "industrial_defect_distillation"
+  description: "Дистилляция LTDETR в легкие детекторы для промышленной дефектоскопии"
+  author: "магистерская диссертация"
+
+teacher:
+  dataset: "real_plus_synthetic_aug"
+  model_path: "/app/distillation/models/teacher/exported_models/exported_best.pt"
+  model: "dinov3/convnext-large-ltdetr-coco"
+
+students:
+  faster_rcnn_r18_baseline:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    type: "baseline"
+    
+  faster_rcnn_r18_kd:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    distill_method: "kd"
+    temperature: 4.0
+    alpha: 0.5
+    
+  faster_rcnn_r18_fitnet:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    distill_method: "fitnet"
+    beta: 0.3
+    
+  faster_rcnn_r18_hybrid:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    distill_method: "hybrid"
+    temperature: 4.0
+    alpha: 0.3
+    beta: 0.3
+    
+  faster_rcnn_mobilenet_hybrid:
+    backbone: "mobilenet_v3_large"
+    epochs: 60
+    batch: 8
+    lr: 0.001
+    distill_method: "hybrid"
+    temperature: 4.0
+    alpha: 0.4
+    beta: 0.4
+    
+  ssd_mobilenet_hybrid:
+    backbone: "mobilenet_v3_large"
+    epochs: 80
+    batch: 16
+    lr: 0.001
+    distill_method: "hybrid"
+    temperature: 3.0
+    alpha: 0.5
+    beta: 0.3
+
+paths:
+  experiment_data: "/app/data/experiment/datasets"
+  results_dir: "/app/distillation_industrial/reports"
+  models_dir: "/app/distillation_industrial/models"
+
+fps:
+  device: "cpu"
+  warmup: 50
+  iterations: 200
+  img_size: [640, 640]
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "industrial_distillation"
+
+classes:
+  num_classes: 4
+  names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"

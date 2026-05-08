@@ -1,0 +1,94 @@
+experiment:
+  name: "distillation_lightweight_models"
+  description: "Дистилляция LTDETR+DINOv3 в лёгкие модели с корректной FGD"
+  author: "магистерская диссертация"
+
+teacher:
+  dataset: "real_plus_synthetic_aug"
+  strategy: "ssl"  # frozen / finetune / ssl
+  model: "dinov3/convnext-large-ltdetr-coco"
+  weights_path: ""  # Заполнить после первого обучения
+  max_steps: 7000
+  val_every_steps: 500
+  lr: 0.0001
+  batch_size: 4
+  gradient_accumulation_steps: 2
+  ssl_epochs: 10
+  ssl_batch: 32
+
+paths:
+  experiment_data: "/app/data/experiment/datasets"
+  results_dir: "/app/distillation/reports"
+  models_dir: "/app/distillation/models"
+
+students:
+  # YOLOv8 Nano
+  yolo_nano:
+    model_name: "yolov8n"
+    epochs: 100
+    imgsz: 640
+    batch: 16
+    lr: 0.01
+    patience: 15
+    type: "baseline"
+    
+  yolo_nano_distill:
+    model_name: "yolov8n"
+    epochs: 100
+    imgsz: 640
+    batch: 16
+    lr: 0.01
+    patience: 15
+    distill_weight: 0.1  # Вес distillation loss
+    temperature: 4.0      # Температура для软化
+    type: "distill"
+
+  # PicoDet-S  
+  picodet_s:
+    steps: 5000
+    batch: 16
+    lr: 0.0001
+    type: "baseline"
+    
+  picodet_s_distill:
+    steps: 5000
+    batch: 16
+    lr: 0.0001
+    distill_weight: 0.1
+    temperature: 3.0
+    type: "distill"
+
+  # Faster R-CNN R18
+  faster_rcnn_r18:
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    patience: 10
+    type: "baseline"
+    
+  faster_rcnn_r18_distill:
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    patience: 10
+    distill_weight: 0.5
+    temperature: 2.0
+    type: "distill"
+
+fps:
+  device: "cpu"
+  warmup: 50
+  iterations: 200
+  img_size: [640, 640]
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "distillation_lightweight"
+
+classes:
+  num_classes: 4
+  names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"

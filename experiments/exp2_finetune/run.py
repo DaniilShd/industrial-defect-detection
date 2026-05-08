@@ -23,6 +23,22 @@ logger = logging.getLogger(__name__)
 EXPERIMENT_NAME = "exp2_finetune"
 STRATEGY_NAME = "finetune"
 
+def _prepare_mlflow_metrics(result: dict) -> dict:
+    """Собирает ВСЕ метрики для MLflow."""
+    metrics = {
+        'test_map50': result.get('test_map50', 0),
+        'test_map75': result.get('test_map75', 0),
+        'test_map50_95': result.get('test_map50_95', 0),
+        'val_map50': result.get('val_map50', 0),
+        'training_time_hours': result.get('training_time_hours', 0),
+        'n_epochs': result.get('n_epochs', 0),
+        'n_images': result.get('n_images', 0),
+    }
+    # Добавляем все per-class метрики (test_cls0_AP50, test_cls0_Precision, ...)
+    for k, v in result.items():
+        if k.startswith('test_cls'):
+            metrics[k] = v
+    return metrics
 
 def main():
     config_path = Path(__file__).parent.parent / "config.yaml"
@@ -66,13 +82,7 @@ def main():
                     result = train_ltdetr(config, run_cfg, models_dir / run_cfg['run_name'])
                     all_results.append(result)
                     completed_count += 1
-                    mlflow.log_metrics({
-                        'test_map50': result['test_map50'],
-                        'test_map75': result['test_map75'],
-                        'test_map50_95': result['test_map50_95'],
-                        'val_map50': result['val_map50'],
-                        'training_time_hours': result['training_time_hours'],
-                    })
+                    mlflow.log_metrics(_prepare_mlflow_metrics(result))
                     mlflow.set_tag("status", "completed")
                 except Exception as e:
                     logger.error(f"Ошибка: {e}", exc_info=True)

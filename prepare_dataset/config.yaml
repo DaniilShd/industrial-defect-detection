@@ -12,11 +12,11 @@ experiment:
 # ============================================================
 paths:
   # Входные данные
-  real_dataset: "/app/data/processed/balanced_defect_patches"  # train/val/test
+  real_dataset: "/app/data/processed/balanced_defect_patches_v2"  # train/val/test
   best_synthetic: "data/results/ablation/abl_021_r0/synthetic"  # только train
   
   # Выходные данные
-  output_dir: "/app/data/experiment"  # Все датасеты здесь
+  output_dir: "/app/data/experiment_v2"  # Все датасеты здесь
 
 # ============================================================
 # ПАРАМЕТРЫ ИЗОБРАЖЕНИЙ
