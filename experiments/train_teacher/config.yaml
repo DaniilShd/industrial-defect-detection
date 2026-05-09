@@ -1,0 +1,51 @@
+experiment:
+  name: "teacher_training"
+  description: "Обучение dinov3/convnext-large-ltdetr-coco разными стратегиями"
+
+paths:
+  experiment_data: "/app/data/experiment_v2/datasets/real_plus_synthetic_aug"
+  models_dir: "/app/data/experiment_v2/models/teacher"
+  report_dir: "/app/data/experiment_v2/experiments/train_teacher/report"
+
+# Датасет для обучения LTDETR
+dataset:
+  data_yaml: "real_plus_synthetic_aug/data.yaml"
+  # или если data.yaml уже содержит всё:
+  # data_yaml: "real_plus_synthetic_aug/data.yaml"
+
+# Модель
+model:
+  architecture: "dinov3/convnext-large-ltdetr-coco"
+
+# Стратегия обучения LTDETR
+strategy:
+  # frozen — замороженный бэкбон (baseline)
+  # finetune — размороженный бэкбон, обучение с нуля
+  # ssl — SSL дообучение бэкбона + LTDETR с этим бэкбоном
+  name: "finetune"
+
+training:
+  steps: "auto"                     # auto — подберёт автоматически
+  batch_size: 4
+  precision: "bf16-mixed"
+  lr: 0.0001
+  seed: 42
+  val_every_steps: 500
+  eval_conf_threshold: 0.001       # Начальный порог фильтрации для честного mAP
+  conf_threshold: 0.25             # Начальный порог уверенности в предикте
+
+# SSL настройки (только если strategy.name == "ssl")
+ssl:
+  enabled: false                    # Автоматически включится при strategy.name == "ssl"
+  epochs: 50
+  batch_size: 32
+  method: "distillation"
+  teacher: "dinov3/vitl16"
+
+# Метрики и контроль переобучения
+metrics:
+  watch_metric: "val_metric/map"
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "teacher_training"

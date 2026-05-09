@@ -64,9 +64,9 @@ students:
     beta: 0.3
 
 paths:
-  experiment_data: "/app/data/experiment/datasets"
-  results_dir: "/app/distillation_industrial/reports"
-  models_dir: "/app/distillation_industrial/models"
+  experiment_data: "/app/data/experiment_v2/datasets"
+  results_dir: "/app/distillation/reports"
+  models_dir: "/app/distillation/models"
 
 fps:
   device: "cpu"

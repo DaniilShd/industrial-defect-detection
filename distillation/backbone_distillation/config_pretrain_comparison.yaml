@@ -1,0 +1,74 @@
+experiment:
+  name: "backbone_distillation_comparison"
+  description: "Сравнение методов инициализации бэкбона ResNet18 для Faster R-CNN: scratch vs ImageNet vs дистилляция от LTDETR"
+  author: "магистерская диссертация"
+  hypothesis: "Дистилляция бэкбона от специализированного учителя-дефектоскописта превосходит ImageNet-предобучение для задачи детекции поверхностных дефектов"
+
+teacher:
+  model: "dinov3/convnext-large"
+  description: "Учитель - LTDETR с ConvNeXt-Large backbone, предобученный на COCO и дообученный на дефектах"
+  weights: "/app/distillation/models/teacher/exported_models/exported_best.pt"
+
+pretrain:
+  unlabeled_data: "/app/data/unlabeled_defects"
+  epochs: 200
+  batch_size: 128
+  image_size: [224, 224]
+  method: "distillation"
+  description: "Предобучение ResNet18 через дистилляцию от учителя-дефектоскописта"
+
+students:
+  faster_rcnn_r18_scratch:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "scratch"
+    patience: 15
+    description: "Случайная инициализация - нижняя граница производительности"
+    
+  faster_rcnn_r18_imagenet:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "imagenet_pretrained"
+    patience: 15
+    description: "Предобучение на ImageNet - стандартный подход в компьютерном зрении"
+    
+  faster_rcnn_r18_distilled:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "lightly_pretrained"
+    patience: 15
+    description: "Дистилляция от LTDETR-дефектоскописта - предложенный метод"
+
+detection:
+  data_path: "/app/data/experiment/datasets/real_plus_synthetic_aug"
+  num_classes: 4
+  img_size: [640, 640]
+  class_names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+paths:
+  pretrain_output: "/app/backbone_distillation/pretrain"
+  detection_output: "/app/backbone_distillation/detectors"
+  results_dir: "/app/backbone_distillation/reports"
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "backbone_distillation"
+
+fps:
+  device: "cpu"
+  warmup: 50
+  iterations: 200
+  img_size: [640, 640]

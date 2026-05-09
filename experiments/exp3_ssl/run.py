@@ -45,33 +45,58 @@ def _prepare_mlflow_metrics(result: dict) -> dict:
 
 
 def _get_backbone_and_teacher(full_model: str) -> tuple:
-    """Определяет бэкбон и учителя по имени LTDETR модели."""
-    if 'convnext-tiny' in full_model:
-        return 'convnext_tiny', 'dinov2/vits14'
-    elif 'convnext-small' in full_model:
-        return 'convnext_small', 'dinov2/vitb14'
+    """
+    Определяет чистый бэкбон и учителя по имени LTDETR-модели.
+    
+    Пример:
+      'dinov3/convnext-large-ltdetr-coco' → ('dinov3/convnext-large', 'dinov3/vitl16')
+      'dinov3/vitt16-ltdetr-coco'         → ('dinov3/vitt16', 'dinov3/vits16')
+    """
+    # Сопоставление LTDETR-модель → (чистый бэкбон, учитель)
+    if 'convnext-large' in full_model:
+        return 'dinov3/convnext-large', 'dinov3/vitl16'
     elif 'convnext-base' in full_model:
-        return 'convnext_base', 'dinov2/vitb14'
-    elif 'convnext-large' in full_model:
-        return 'convnext_large', 'dinov2/vitl14'
+        return 'dinov3/convnext-base', 'dinov3/vitl16'
+    elif 'convnext-small' in full_model:
+        return 'dinov3/convnext-small', 'dinov3/vitb16'
+    elif 'convnext-tiny' in full_model:
+        return 'dinov3/convnext-tiny', 'dinov3/vits16'
+    elif 'vitt16plus' in full_model:
+        return 'dinov3/vitt16plus', 'dinov3/vits16'
+    elif 'vitt16' in full_model:
+        return 'dinov3/vitt16', 'dinov3/vits16'
+    elif 'vits16plus' in full_model:
+        return 'dinov3/vits16plus', 'dinov3/vitb16'
+    elif 'vits16' in full_model:
+        return 'dinov3/vits16', 'dinov3/vitb16'
+    elif 'vitb16' in full_model:
+        return 'dinov3/vitb16', 'dinov3/vitl16'
+    elif 'vitl16' in full_model:
+        return 'dinov3/vitl16', 'dinov3/vitl16'
     else:
-        return 'convnext_tiny', 'dinov2/vits14'
+        logger.warning(f"Неизвестная модель {full_model}, fallback на convnext-tiny")
+        return 'dinov3/convnext-tiny', 'dinov3/vits16'
 
 
 def ssl_pretrain_for_dataset(
     config: dict,
     models_dir: Path,
     ds_name: str,
+    seed: int,
 ) -> Path:
     """
     SSL дообучение бэкбона ТОЛЬКО на данных конкретного датасета.
     
     Использует train/images датасета как неразмеченные данные.
     Лейблы игнорируются — LightlyTrain читает только изображения.
+    
+    По документации:
+      - model="dinov3/convnext-large" — чистый бэкбон без LTDETR-головы
+      - method="distillation" — дистилляция (v3), teacher по умолчанию dinov3/vitb16
     """
     from lightly_train import pretrain
 
-    ssl_out = models_dir / f"ssl_pretrain_{ds_name}"
+    ssl_out = models_dir / f"ssl_pretrain_{ds_name}_seed{seed}"
     experiment_data = Path(config['paths']['experiment_data'])
     
     # Берём train/images только этого датасета
@@ -86,17 +111,20 @@ def ssl_pretrain_for_dataset(
     full_model = config['training']['model']
     backbone, teacher = _get_backbone_and_teacher(full_model)
     
-    logger.info(f"Distillation: {teacher} → {backbone}")
+    logger.info(f"Distillation: teacher={teacher} → student={backbone}")
+    logger.info(f"SSL config: epochs={config.get('ssl', {}).get('epochs', 10)}, "
+                f"batch_size={config.get('ssl', {}).get('batch_size', 32)}")
     
     pretrain(
         out=str(ssl_out),
-        data=str(unlabeled_path),       # Только данные этого датасета
-        model=backbone,                 # Студент (ConvNeXt)
-        method="distillation",          # Дистилляция
-        method_args={"teacher": teacher},  # Учитель (DINOv2 ViT)
+        data=str(unlabeled_path),              # Только неразмеченные картинки этого датасета
+        model=backbone,                        # Чистый бэкбон: dinov3/convnext-large
+        method="distillation",                 # Дистилляция v3 (рекомендована для DINOv3)
+        method_args={"teacher": teacher},      # Учитель: dinov3/vitl16 для large
         epochs=config.get('ssl', {}).get('epochs', 10),
         batch_size=config.get('ssl', {}).get('batch_size', 32),
-        seed=config['seeds'][0],
+        precision=config['training'].get('precision', 'bf16-mixed'),
+        seed=seed,
         overwrite=True,
     )
 
@@ -115,7 +143,6 @@ def main():
 
     datasets = config['datasets']
     seeds = config['seeds']
-    # Каждый датасет: 1 SSL + 1 LTDETR = 2 запуска на датасет
     total_runs = len(datasets) * len(seeds)
 
     mlflow.set_tracking_uri(config['mlflow']['tracking_uri'])
@@ -133,7 +160,7 @@ def main():
         mlflow.log_param("experiment", EXPERIMENT_NAME)
         mlflow.log_param("strategy", STRATEGY_NAME)
         mlflow.log_param("total_runs", total_runs)
-        mlflow.log_param("ssl_backbone", config['training']['model'])
+        mlflow.log_param("base_model", config['training']['model'])
 
         for (ds_name, ds_cfg), seed in itertools.product(datasets.items(), seeds):
             run_cfg = {
@@ -153,15 +180,15 @@ def main():
                 mlflow.log_params(run_cfg)
                 
                 try:
-                    # 🔥 Шаг 1: SSL дообучение ДЛЯ ЭТОГО ДАТАСЕТА
-                    logger.info(f"SSL pretrain for {ds_name}...")
+                    # Шаг 1: SSL дообучение бэкбона на неразмеченных данных этого датасета
+                    logger.info(f"SSL pretrain for {ds_name} (seed={seed})...")
                     backbone_path = ssl_pretrain_for_dataset(
-                        config, models_dir, ds_name
+                        config, models_dir, ds_name, seed
                     )
                     mlflow.log_param("ssl_backbone_path", str(backbone_path))
                     
-                    # 🔥 Шаг 2: LTDETR с SSL бэкбоном
-                    logger.info(f"LT-DETR training for {ds_name}...")
+                    # Шаг 2: LTDETR с SSL-дообученным бэкбоном
+                    logger.info(f"LT-DETR training for {ds_name} (seed={seed})...")
                     result = train_ltdetr(
                         config, run_cfg, models_dir / run_cfg['run_name'],
                         extra_model_args={"backbone_weights": str(backbone_path)},
