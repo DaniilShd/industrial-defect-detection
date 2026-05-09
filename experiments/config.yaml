@@ -5,8 +5,8 @@ experiment:
 
 paths:
   experiment_data: "/app/data/experiment_v2/datasets"
-  results_dir: "/app/experiment_v2/reports"
-  models_dir: "/app/experiment_v2/models"
+  results_dir: "/app/data/experiment_v2/reports"
+  models_dir: "/app/data/experiment_v2/models"
 
 datasets:
   real_baseline:
@@ -30,10 +30,10 @@ training:
   gradient_accumulation_steps: 2
   max_steps:
     real_baseline: 1600              # 10 эпох
-    real_augmented: 6360             # 10 эпох
-    synthetic_full: 9500             # 10 эпох
-    real_plus_synthetic_aug: 6360    # 10 эпох
-    mixed_full: 15880                # 10 эпох
+    real_augmented: 4770             # 10 эпох
+    synthetic_full: 6350            # 10 эпох
+    real_plus_synthetic_aug: 4770    # 10 эпох
+    mixed_full: 11120                # 10 эпох
   val_every_steps: 500
   lr: 0.0001
   batch_size: 4
