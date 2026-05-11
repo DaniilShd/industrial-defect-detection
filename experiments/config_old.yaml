@@ -42,10 +42,10 @@ training:
 
 # SSL настройки (используются в exp3_ssl)
 ssl:
-  epochs: 800
+  epochs: 400
   batch_size: 64
 
-seeds: [123]  # [42, 123, 777] для стат. значимости
+seeds: [42]  # [42, 123, 777] для стат. значимости
 
 statistics:
   alpha: 0.05

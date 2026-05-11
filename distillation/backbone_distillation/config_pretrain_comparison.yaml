@@ -5,7 +5,7 @@ experiment:
   hypothesis: "Дистилляция бэкбона от специализированного учителя-дефектоскописта превосходит ImageNet-предобучение для задачи детекции поверхностных дефектов"
 
 teacher:
-  model: "dinov3/convnext-large"
+  model: "dinov3/vits16-ltdetr-coco"
   description: "Учитель - LTDETR с ConvNeXt-Large backbone, предобученный на COCO и дообученный на дефектах"
   weights: "/app/distillation/models/teacher/exported_models/exported_best.pt"
 

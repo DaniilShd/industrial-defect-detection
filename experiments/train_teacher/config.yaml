@@ -1,6 +1,6 @@
 experiment:
   name: "teacher_training"
-  description: "Обучение dinov3/convnext-large-ltdetr-coco разными стратегиями"
+  description: "Обучение dinov3/vits16-ltdetr-coco разными стратегиями"
 
 paths:
   experiment_data: "/app/data/experiment_v2/datasets/real_plus_synthetic_aug"
@@ -15,7 +15,7 @@ dataset:
 
 # Модель
 model:
-  architecture: "dinov3/convnext-large-ltdetr-coco"
+  architecture: "dinov3/vits16-ltdetr-coco"
 
 # Стратегия обучения LTDETR
 strategy:
@@ -25,7 +25,7 @@ strategy:
   name: "finetune"
 
 training:
-  steps: "auto"                     # auto — подберёт автоматически
+  steps: 30000                     # auto — подберёт автоматически
   batch_size: 4
   precision: "bf16-mixed"
   lr: 0.0001
@@ -37,10 +37,10 @@ training:
 # SSL настройки (только если strategy.name == "ssl")
 ssl:
   enabled: false                    # Автоматически включится при strategy.name == "ssl"
-  epochs: 50
-  batch_size: 32
+  epochs: 200
+  batch_size: 64
   method: "distillation"
-  teacher: "dinov3/vitl16"
+  teacher: "dinov3/vitb16"
 
 # Метрики и контроль переобучения
 metrics:

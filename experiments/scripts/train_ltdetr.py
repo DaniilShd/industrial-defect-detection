@@ -92,8 +92,9 @@ def train_ltdetr(
         raise FileNotFoundError(f"data.yaml не найден: {data_yaml_path}")
 
     model_args = {"lr": config['training'].get('lr', 1e-4)}
-    if run_cfg.get('freeze_backbone', False):
-        model_args["backbone_freeze"] = True
+    # Всегда добавляем ключ backbone_freeze (API требует именно так)
+    model_args["backbone_freeze"] = run_cfg.get('freeze_backbone', False)
+
     if extra_model_args:
         model_args.update(extra_model_args)
 
