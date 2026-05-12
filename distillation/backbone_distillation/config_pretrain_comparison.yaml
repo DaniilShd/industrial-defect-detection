@@ -6,11 +6,14 @@ experiment:
 
 teacher:
   model: "dinov3/vits16-ltdetr-coco"
-  description: "Учитель - LTDETR с ConvNeXt-Large backbone, предобученный на COCO и дообученный на дефектах"
-  weights: "/app/distillation/models/teacher/exported_models/exported_best.pt"
+  description: "Учитель - LTDETR с dinov3/vits16 backbone, предобученный на COCO и дообученный на дефектах"
+  # ПУТЬ К ПОЛНОЙ МОДЕЛИ ДЕТЕКТОРА (НЕ ТОЛЬКО БЭКБОН)
+  weights: "/app/data/experiment_v2/models/exp3_ssl/mixed_full_ssl_seed777/exported_models/exported_best.pt"
+  # Для дистилляции используем извлечённый бэкбон
+  distillation_weights: "/app/backbone_distillation/teacher_backbone_weights.pt"
 
 pretrain:
-  unlabeled_data: "/app/data/unlabeled_defects"
+  unlabeled_data: "/app/data/experiment_v2/datasets/mixed_full/train/images"
   epochs: 200
   batch_size: 128
   image_size: [224, 224]
@@ -49,7 +52,7 @@ students:
     description: "Дистилляция от LTDETR-дефектоскописта - предложенный метод"
 
 detection:
-  data_path: "/app/data/experiment/datasets/real_plus_synthetic_aug"
+  data_path: "/app/data/experiment_v2/datasets/mixed_full"
   num_classes: 4
   img_size: [640, 640]
   class_names:

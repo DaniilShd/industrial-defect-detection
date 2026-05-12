@@ -86,9 +86,6 @@ def ssl_pretrain_for_dataset(
 ) -> Path:
     """
     SSL дообучение бэкбона методом DINO (без внешнего учителя).
-    
-    DINO сам строит учителя через exponential moving average ученика.
-    Не требует внешнего ImageNet-учителя → учится на ваших данных.
     """
     from lightly_train import pretrain
 
@@ -106,19 +103,23 @@ def ssl_pretrain_for_dataset(
     full_model = config['training']['model']  # dinov3/vits16-ltdetr-coco
     backbone, _ = _get_backbone_and_teacher(full_model)  # dinov3/vits16
     
+    # ★ ИЗМЕНЕНИЕ 1: Индивидуальные эпохи для датасета
+    ssl_epochs = config['ssl'].get('epochs_per_dataset', {}).get(
+        ds_name, 
+        config['ssl'].get('epochs', 400)  # fallback на общее значение
+    )
+    
     logger.info(f"DINO SSL: model={backbone} (no external teacher needed)")
-    logger.info(f"SSL config: epochs={config['ssl']['epochs']}, "
+    logger.info(f"SSL config: epochs={ssl_epochs}, "
                 f"batch_size={config['ssl']['batch_size']}")
     
-    # ★ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: method="dino" без method_args
     pretrain(
         out=str(ssl_out),
         data=str(unlabeled_path),
-        model=backbone,                    # dinov3/vits16
-        method="dino",                     # ← DINO вместо distillation
-        # method_args не нужны! DINO сам создает учителя из ученика
-        epochs=config['ssl']['epochs'],    # 400
-        batch_size=config['ssl']['batch_size'],  # 64
+        model=backbone,
+        method="dino",
+        epochs=ssl_epochs,  # ★ ИЗМЕНЕНИЕ 2: используем индивидуальное значение
+        batch_size=config['ssl']['batch_size'],
         precision=config['training'].get('precision', 'bf16-mixed'),
         seed=seed,
         overwrite=True,

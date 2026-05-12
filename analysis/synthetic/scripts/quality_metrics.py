@@ -17,6 +17,10 @@ from tqdm import tqdm
 
 from config import AnalysisConfig
 
+# Настройка русского шрифта
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['axes.unicode_minus'] = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,7 +50,7 @@ class QualityMetricsAnalyzer:
         """Сравнение цветовых гистограмм"""
         similarities = {}
         
-        for channel, name in enumerate(['blue', 'green', 'red']):
+        for channel, name in enumerate(['синий', 'зелёный', 'красный']):
             hist1 = cv2.calcHist([img1], [channel], None, [256], [0, 256])
             hist2 = cv2.calcHist([img2], [channel], None, [256], [0, 256])
             
@@ -58,9 +62,9 @@ class QualityMetricsAnalyzer:
             chi_square = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CHISQR)
             
             similarities[name] = {
-                "correlation": float(correlation),
-                "bhattacharyya": float(bhattacharyya),
-                "chi_square": float(chi_square)
+                "корреляция": float(correlation),
+                "баттачарья": float(bhattacharyya),
+                "хи-квадрат": float(chi_square)
             }
         
         return similarities
@@ -77,9 +81,9 @@ class QualityMetricsAnalyzer:
         total_pixels = gray.size
         
         return {
-            "canny_density": float(np.sum(edges_canny > 0) / total_pixels),
-            "sobel_mean": float(np.mean(edges_sobel)),
-            "sobel_std": float(np.std(edges_sobel))
+            "плотность_canny": float(np.sum(edges_canny > 0) / total_pixels),
+            "среднее_sobel": float(np.mean(edges_sobel)),
+            "станд_откл_sobel": float(np.std(edges_sobel))
         }
     
     def compute_texture_features(self, img: np.ndarray) -> Dict:
@@ -101,13 +105,13 @@ class QualityMetricsAnalyzer:
             correlation = float(np.mean(graycoprops(glcm, 'correlation')))
             
             return {
-                "contrast": contrast,
-                "homogeneity": homogeneity,
-                "energy": energy,
-                "correlation": correlation
+                "контрастность": contrast,
+                "однородность": homogeneity,
+                "энергия": energy,
+                "корреляция": correlation
             }
         except Exception:
-            return {"contrast": 0, "homogeneity": 0, "energy": 0, "correlation": 0}
+            return {"контрастность": 0, "однородность": 0, "энергия": 0, "корреляция": 0}
     
     def compute_frequency_spectrum(self, img: np.ndarray) -> Dict:
         """Анализ частотного спектра"""
@@ -133,16 +137,16 @@ class QualityMetricsAnalyzer:
         total_energy = np.sum(magnitude)
         
         return {
-            "low_freq_energy_ratio": float(np.sum(magnitude[low_mask]) / total_energy),
-            "mid_freq_energy_ratio": float(np.sum(magnitude[mid_mask]) / total_energy),
-            "high_freq_energy_ratio": float(np.sum(magnitude[high_mask]) / total_energy),
-            "spectral_centroid": float(np.sum(dist * magnitude) / total_energy)
+            "доля_низких_частот": float(np.sum(magnitude[low_mask]) / total_energy),
+            "доля_средних_частот": float(np.sum(magnitude[mid_mask]) / total_energy),
+            "доля_высоких_частот": float(np.sum(magnitude[high_mask]) / total_energy),
+            "спектральный_центроид": float(np.sum(dist * magnitude) / total_energy)
         }
     
     def analyze(self, original_dir: Path, synthetic_dir: Path, output_dir: Path) -> Dict:
         """Полный анализ качества изображений"""
         logger.info("=" * 80)
-        logger.info("📊 QUALITY METRICS ANALYSIS")
+        logger.info("📊 АНАЛИЗ МЕТРИК КАЧЕСТВА")
         logger.info("=" * 80)
         
         cfg = self.config.quality
@@ -151,7 +155,7 @@ class QualityMetricsAnalyzer:
         pairs = self._find_image_pairs(original_dir, synthetic_dir, 
                                        min(cfg.num_samples_fid, 100))
         
-        logger.info(f"Found {len(pairs)} image pairs for comparison")
+        logger.info(f"Найдено {len(pairs)} пар изображений для сравнения")
         
         psnr_values = []
         ssim_values = []
@@ -164,7 +168,7 @@ class QualityMetricsAnalyzer:
         freq_synth = defaultdict(list)
         
         # Попарное сравнение
-        for orig_path, synth_path, name in tqdm(pairs, desc="Computing metrics"):
+        for orig_path, synth_path, name in tqdm(pairs, desc="Вычисление метрик"):
             orig_img = cv2.imread(str(orig_path))
             synth_img = cv2.imread(str(synth_path))
             
@@ -174,7 +178,7 @@ class QualityMetricsAnalyzer:
             orig_rgb = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
             synth_rgb = cv2.cvtColor(synth_img, cv2.COLOR_BGR2RGB)
             
-            # Ресайз если нужно
+            # Изменение размера при необходимости
             if orig_rgb.shape != synth_rgb.shape:
                 synth_rgb = cv2.resize(synth_rgb, (orig_rgb.shape[1], orig_rgb.shape[0]))
             
@@ -195,7 +199,7 @@ class QualityMetricsAnalyzer:
                     for metric_name, value in metrics.items():
                         hist_similarities[f"{ch}_{metric_name}"].append(value)
             
-            # Edge density
+            # Плотность границ
             if self.config.additional_analyses.compute_edge_density:
                 edge_orig = self.compute_edge_density(orig_rgb)
                 edge_synth = self.compute_edge_density(synth_rgb)
@@ -219,9 +223,9 @@ class QualityMetricsAnalyzer:
                     freq_orig[key].append(f_orig[key])
                     freq_synth[key].append(f_synth[key])
             
-            # Per-image stats
+            # Статистика по изображениям
             self.results['per_image'].append({
-                "name": name,
+                "имя": name,
                 "psnr": float(psnr_values[-1]) if psnr_values else None,
                 "ssim": float(ssim_values[-1]) if ssim_values else None
             })
@@ -229,22 +233,22 @@ class QualityMetricsAnalyzer:
         # Агрегация результатов
         if psnr_values:
             self.results['psnr'] = {
-                "mean": float(np.mean(psnr_values)),
-                "std": float(np.std(psnr_values)),
-                "min": float(np.min(psnr_values)),
-                "max": float(np.max(psnr_values)),
-                "median": float(np.median(psnr_values)),
-                "values": [float(v) for v in psnr_values]
+                "среднее": float(np.mean(psnr_values)),
+                "станд_откл": float(np.std(psnr_values)),
+                "минимум": float(np.min(psnr_values)),
+                "максимум": float(np.max(psnr_values)),
+                "медиана": float(np.median(psnr_values)),
+                "значения": [float(v) for v in psnr_values]
             }
         
         if ssim_values:
             self.results['ssim'] = {
-                "mean": float(np.mean(ssim_values)),
-                "std": float(np.std(ssim_values)),
-                "min": float(np.min(ssim_values)),
-                "max": float(np.max(ssim_values)),
-                "median": float(np.median(ssim_values)),
-                "values": [float(v) for v in ssim_values]
+                "среднее": float(np.mean(ssim_values)),
+                "станд_откл": float(np.std(ssim_values)),
+                "минимум": float(np.min(ssim_values)),
+                "максимум": float(np.max(ssim_values)),
+                "медиана": float(np.median(ssim_values)),
+                "значения": [float(v) for v in ssim_values]
             }
         
         # Сохранение результатов
@@ -268,9 +272,8 @@ class QualityMetricsAnalyzer:
         
         pairs = []
         
-        # Ищем прямые соответствия по имени
+        # Поиск прямых соответствий по имени
         for orig_stem, orig_path in orig_images.items():
-            # Ищем синтетику, содержащую имя оригинала
             for synth_stem, synth_path in synth_images.items():
                 if orig_stem in synth_stem:
                     pairs.append((orig_path, synth_path, f"{orig_stem} ↔ {synth_stem}"))
@@ -289,7 +292,7 @@ class QualityMetricsAnalyzer:
                 pairs.append((
                     random.choice(orig_paths),
                     random.choice(synth_paths),
-                    "random_pair"
+                    "случайная_пара"
                 ))
         
         return pairs[:max_pairs]
@@ -301,17 +304,16 @@ class QualityMetricsAnalyzer:
         metrics_dir = output_dir / "metrics"
         metrics_dir.mkdir(parents=True, exist_ok=True)
         
-        # Конвертируем numpy
         def convert(obj):
             if isinstance(obj, (np.integer,)): return int(obj)
             if isinstance(obj, (np.floating,)): return float(obj)
             if isinstance(obj, np.ndarray): return obj.tolist()
             return obj
         
-        with open(metrics_dir / "quality_metrics.json", 'w') as f:
-            json.dump(self.results, f, indent=2, default=convert)
+        with open(metrics_dir / "метрики_качества.json", 'w', encoding='utf-8') as f:
+            json.dump(self.results, f, indent=2, ensure_ascii=False, default=convert)
         
-        logger.info(f"Results saved: {metrics_dir / 'quality_metrics.json'}")
+        logger.info(f"Результаты сохранены: {metrics_dir / 'метрики_качества.json'}")
     
     def _create_visualizations(self, output_dir: Path, 
                                psnr_values: List[float],
@@ -322,68 +324,68 @@ class QualityMetricsAnalyzer:
         
         fig, axes = plt.subplots(2, 2, figsize=(14, 12))
         
-        # PSNR histogram
+        # Гистограмма PSNR
         if psnr_values:
             axes[0, 0].hist(psnr_values, bins=30, color='#2196F3', alpha=0.8, edgecolor='black')
             axes[0, 0].axvline(np.mean(psnr_values), color='r', linestyle='--', 
-                              label=f'Mean: {np.mean(psnr_values):.2f} dB')
-            axes[0, 0].set_xlabel('PSNR (dB)')
-            axes[0, 0].set_ylabel('Frequency')
-            axes[0, 0].set_title('PSNR Distribution')
+                              label=f'Среднее: {np.mean(psnr_values):.2f} дБ')
+            axes[0, 0].set_xlabel('PSNR (дБ)')
+            axes[0, 0].set_ylabel('Частота')
+            axes[0, 0].set_title('Распределение PSNR')
             axes[0, 0].legend()
             axes[0, 0].grid(True, alpha=0.3)
         
-        # SSIM histogram
+        # Гистограмма SSIM
         if ssim_values:
             axes[0, 1].hist(ssim_values, bins=30, color='#4CAF50', alpha=0.8, edgecolor='black')
             axes[0, 1].axvline(np.mean(ssim_values), color='r', linestyle='--',
-                              label=f'Mean: {np.mean(ssim_values):.4f}')
+                              label=f'Среднее: {np.mean(ssim_values):.4f}')
             axes[0, 1].set_xlabel('SSIM')
-            axes[0, 1].set_ylabel('Frequency')
-            axes[0, 1].set_title('SSIM Distribution')
+            axes[0, 1].set_ylabel('Частота')
+            axes[0, 1].set_title('Распределение SSIM')
             axes[0, 1].legend()
             axes[0, 1].grid(True, alpha=0.3)
         
-        # PSNR vs SSIM scatter
+        # Диаграмма рассеяния PSNR vs SSIM
         if psnr_values and ssim_values and len(psnr_values) == len(ssim_values):
             axes[1, 0].scatter(psnr_values, ssim_values, alpha=0.5, c='#673AB7', s=20)
-            axes[1, 0].set_xlabel('PSNR (dB)')
+            axes[1, 0].set_xlabel('PSNR (дБ)')
             axes[1, 0].set_ylabel('SSIM')
-            axes[1, 0].set_title('PSNR vs SSIM')
+            axes[1, 0].set_title('Зависимость PSNR от SSIM')
             axes[1, 0].grid(True, alpha=0.3)
         
-        # Summary table
+        # Сводная таблица
         axes[1, 1].axis('off')
-        summary_text = "QUALITY METRICS SUMMARY\n\n"
+        summary_text = "СВОДКА МЕТРИК КАЧЕСТВА\n\n"
         
         if psnr_values:
             summary_text += f"PSNR:\n"
-            summary_text += f"  Mean: {np.mean(psnr_values):.2f} dB\n"
-            summary_text += f"  Std:  {np.std(psnr_values):.2f} dB\n"
-            summary_text += f"  Min:  {np.min(psnr_values):.2f} dB\n"
-            summary_text += f"  Max:  {np.max(psnr_values):.2f} dB\n\n"
+            summary_text += f"  Среднее: {np.mean(psnr_values):.2f} дБ\n"
+            summary_text += f"  Станд. откл.: {np.std(psnr_values):.2f} дБ\n"
+            summary_text += f"  Минимум: {np.min(psnr_values):.2f} дБ\n"
+            summary_text += f"  Максимум: {np.max(psnr_values):.2f} дБ\n\n"
         
         if ssim_values:
             summary_text += f"SSIM:\n"
-            summary_text += f"  Mean: {np.mean(ssim_values):.4f}\n"
-            summary_text += f"  Std:  {np.std(ssim_values):.4f}\n"
-            summary_text += f"  Min:  {np.min(ssim_values):.4f}\n"
-            summary_text += f"  Max:  {np.max(ssim_values):.4f}\n"
+            summary_text += f"  Среднее: {np.mean(ssim_values):.4f}\n"
+            summary_text += f"  Станд. откл.: {np.std(ssim_values):.4f}\n"
+            summary_text += f"  Минимум: {np.min(ssim_values):.4f}\n"
+            summary_text += f"  Максимум: {np.max(ssim_values):.4f}\n"
         
         axes[1, 1].text(0.1, 0.5, summary_text, transform=axes[1, 1].transAxes,
                        fontsize=11, verticalalignment='center', fontfamily='monospace',
                        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         
-        plt.suptitle('Image Quality Metrics: Original vs Synthetic', 
+        plt.suptitle('Метрики качества изображений: Оригинал vs Синтетика', 
                     fontsize=16, fontweight='bold')
         plt.tight_layout()
         
         for fmt in self.config.visualization.save_formats:
-            plt.savefig(viz_dir / f'quality_metrics.{fmt}', 
+            plt.savefig(viz_dir / f'метрики_качества.{fmt}', 
                        dpi=self.config.visualization.dpi, bbox_inches='tight')
         plt.close()
         
-        logger.info(f"Visualizations saved: {viz_dir}")
+        logger.info(f"Визуализации сохранены: {viz_dir}")
 
 
 def run_quality_analysis(config: AnalysisConfig) -> Dict:

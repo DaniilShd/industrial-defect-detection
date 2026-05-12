@@ -157,6 +157,51 @@ services:
     command: tail -f /dev/null
 
 
+
+  # ============================================
+  # Дистилляция бэкбона
+  # ============================================
+  distillation:
+    build:
+      context: .
+      dockerfile: distillation/Dockerfile
+    container_name: distillation
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONPATH=/app:/app/distillation/scripts:/app/distillation/backbone_distillation
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - OMP_NUM_THREADS=8
+      - HF_HOME=/app/cache/huggingface
+      - HUGGINGFACE_HUB_CACHE=/app/cache/huggingface
+      - TRANSFORMERS_CACHE=/app/cache/huggingface
+      - TORCH_HOME=/app/cache/torch
+    volumes:
+      - ./data:/app/data
+      - ./distillation:/app/distillation
+      - ./distillation/scripts:/app/scripts
+      - ./distillation/backbone_distillation:/app/backbone_distillation
+      - ./distillation/config_distillation.yaml:/app/config_distillation.yaml:ro
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+      - ./cache:/app/cache
+    shm_size: 16g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
+
   mlflow:
     image: python:3.10-slim
     container_name: mlflow
@@ -168,3 +213,5 @@ services:
     command: >
       bash -c "pip install mlflow &&
                mlflow ui --host 0.0.0.0 --port 5000"
+
+  

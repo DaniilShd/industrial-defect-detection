@@ -60,7 +60,7 @@ def train_ltdetr(
     
     train_config = {
         "out": str(out_dir),
-        "model": "dinov3/convnext-tiny-ltdetr-coco",
+        "model": "dinov3/vits16-ltdetr-coco",
         "data": data_config,
         "seed": seed,
         "batch_size": batch_size,

@@ -24,8 +24,8 @@ import torch
 import numpy as np
 import yaml
 from PIL import Image
-from torchvision.models.detection import fasterrcnn_resnet18_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
+from torchvision.models.detection import FasterRCNN
 from torchvision.ops import box_iou
 
 logging.basicConfig(
@@ -61,17 +61,15 @@ class ModelEvaluator:
         
         logger.info(f"Loading model from {self.model_path}")
         
+        # Тип 1: Наши обученные Faster R-CNN модели
         if self.model_type == 'faster_rcnn':
             checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
             
-            # Создаём архитектуру
-            model = fasterrcnn_resnet18_fpn(weights=None)
+            # Создаём бэкбон ResNet18 с FPN
+            backbone = resnet_fpn_backbone('resnet18', pretrained=False)
             
-            # Заменяем классификатор
-            in_features = model.roi_heads.box_predictor.cls_score.in_features
-            model.roi_heads.box_predictor = FastRCNNPredictor(
-                in_features, self.num_classes + 1
-            )
+            # Создаём детектор
+            model = FasterRCNN(backbone, num_classes=self.num_classes + 1)
             
             # Загружаем веса
             if 'model_state_dict' in checkpoint:
@@ -81,10 +79,10 @@ class ModelEvaluator:
             
             model.to(self.device)
             model.eval()
-            
             return model
         
-        elif self.model_type == 'lightly':
+        # Тип 2: LTDETR учитель (полный детектор через Lightly)
+        elif self.model_type == 'ltdetr' or self.model_type == 'lightly':
             import lightly_train
             model = lightly_train.load_model(self.model_path)
             model.to(self.device)
@@ -133,13 +131,15 @@ class ModelEvaluator:
     def _predict_image(self, img_path: Path, conf_threshold: float) -> Dict:
         """Предсказание для одного изображения."""
         
-        if self.model_type == 'lightly':
+        # LTDETR учитель использует свой API
+        if self.model_type == 'ltdetr' or self.model_type == 'lightly':
             import lightly_train
             result = self.model.predict(str(img_path))
             boxes = result['bboxes']
             scores = result['scores']
             labels = result['labels']
         else:
+            # Наши Faster R-CNN модели
             image = Image.open(img_path).convert("RGB")
             image = image.resize((640, 640), Image.BILINEAR)
             img_tensor = torch.from_numpy(
@@ -153,7 +153,7 @@ class ModelEvaluator:
             scores = output['scores'].cpu()
             labels = output['labels'].cpu() - 1  # 0-indexed
         
-        # Фильтруем
+        # Фильтруем по confidence
         keep = scores > conf_threshold
         
         return {
@@ -470,27 +470,50 @@ def main():
     
     all_results = []
     
-    # 1. Оцениваем учителя
-    teacher_model_path = config['teacher']['weights']
-    if Path(teacher_model_path).exists():
+    # 1. Оцениваем учителя LTDETR (полный детектор)
+    teacher_model_path = config['teacher'].get('weights')
+    teacher_model_name = config['teacher'].get('model', 'ltdetr_teacher')
+    
+    if teacher_model_path and Path(teacher_model_path).exists():
         logger.info(f"\n{'='*60}")
-        logger.info("Evaluating TEACHER (LTDETR)")
+        logger.info(f"Evaluating TEACHER: {teacher_model_name}")
+        logger.info(f"Model path: {teacher_model_path}")
         logger.info(f"{'='*60}")
         
-        evaluator = ModelEvaluator(
-            teacher_model_path, 'lightly', num_classes, device
-        )
-        metrics = evaluator.evaluate_detection(test_images, test_labels)
-        
-        teacher_result = {
-            'model': 'teacher_ltdetr',
-            'type': 'teacher',
-            **metrics
-        }
-        all_results.append(teacher_result)
+        try:
+            # Используем тип 'ltdetr' для загрузки через Lightly
+            evaluator = ModelEvaluator(
+                teacher_model_path, 
+                'ltdetr',  # ← ИСПРАВЛЕНО: используем ltdetr вместо lightly
+                num_classes, 
+                device
+            )
+            metrics = evaluator.evaluate_detection(test_images, test_labels)
+            fps_data = evaluator.measure_fps(
+                tuple(config['fps']['img_size']),
+                config['fps']['warmup'],
+                config['fps']['iterations']
+            )
+            params = evaluator.count_parameters()
+            
+            teacher_result = {
+                'model': 'teacher_ltdetr',
+                'type': 'teacher',
+                **metrics,
+                **fps_data,
+                **params
+            }
+            all_results.append(teacher_result)
+            logger.info(f"✅ Teacher evaluation completed: mAP@50 = {metrics.get('mAP_50', 0):.4f}")
+        except Exception as e:
+            logger.error(f"Failed to evaluate teacher: {e}")
+            logger.warning("Continuing without teacher evaluation...")
+    else:
+        logger.warning(f"Teacher model not found at: {teacher_model_path}")
+        logger.info("Skipping teacher evaluation...")
     
-    # 2. Оцениваем учеников
-    for student_name in config['students'].keys():
+    # 2. Оцениваем учеников (Faster R-CNN)
+    for student_name, student_cfg in config['students'].items():
         logger.info(f"\n{'='*60}")
         logger.info(f"Evaluating: {student_name}")
         logger.info(f"{'='*60}")
@@ -522,12 +545,14 @@ def main():
         
         result = {
             'model': student_name,
-            'type': config['students'][student_name]['type'],
+            'type': student_cfg['type'],
             **metrics,
             **fps_data,
             **params
         }
         all_results.append(result)
+        
+        logger.info(f"✅ {student_name} evaluation completed: mAP@50 = {metrics.get('mAP_50', 0):.4f}")
     
     # 3. Сохраняем результаты
     output_path = results_dir / 'evaluation_results.json'
@@ -555,6 +580,25 @@ def main():
     
     logger.info(f"{'='*100}")
     logger.info(f"Results saved to: {output_path}")
+    
+    # 5. Выводим сравнение с учителем
+    teacher_result = next((r for r in all_results if r.get('type') == 'teacher'), None)
+    distilled_result = next((r for r in all_results if r.get('type') == 'lightly_pretrained'), None)
+    
+    if teacher_result and distilled_result:
+        teacher_map = teacher_result.get('mAP_50', 0)
+        distilled_map = distilled_result.get('mAP_50', 0)
+        ratio = (distilled_map / teacher_map) * 100 if teacher_map > 0 else 0
+        
+        logger.info(f"\n{'='*60}")
+        logger.info("COMPARISON WITH TEACHER")
+        logger.info(f"{'='*60}")
+        logger.info(f"Teacher (LTDETR) mAP@50: {teacher_map:.4f}")
+        logger.info(f"Distilled Student mAP@50: {distilled_map:.4f}")
+        logger.info(f"Student retains {ratio:.1f}% of teacher's performance")
+        logger.info(f"Parameter reduction: {teacher_result.get('params_millions', 0):.1f}M → {distilled_result.get('params_millions', 0):.1f}M")
+        logger.info(f"Speedup: {distilled_result.get('fps', 0):.1f}× vs {teacher_result.get('fps', 0):.1f} FPS")
+        logger.info(f"{'='*60}")
 
 
 if __name__ == "__main__":

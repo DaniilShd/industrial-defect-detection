@@ -1,5 +1,4 @@
-# analysis/synthetic/scripts/domain_gap.py
-"""Domain gap analysis using DINOv2 features"""
+"""Анализ разрыва доменов с использованием признаков DINOv2"""
 
 import sys
 from pathlib import Path
@@ -13,6 +12,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+
+# Настройка русского шрифта для графиков
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['axes.unicode_minus'] = False
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -52,15 +55,14 @@ class ImageFeatureDataset(Dataset):
             inputs = self.processor(images=img, return_tensors="pt")
             return inputs.pixel_values.squeeze(0), path.name
         except Exception as e:
-            print(f"⚠️ Error loading {path}: {e}")
-            # Return blank image on error
+            print(f"⚠️ Ошибка загрузки {path}: {e}")
             blank = Image.new('RGB', (self.resize_to, self.resize_to), (0, 0, 0))
             inputs = self.processor(images=blank, return_tensors="pt")
             return inputs.pixel_values.squeeze(0), path.name
 
 
 class DomainGapAnalyzer:
-    """Анализатор domain gap с использованием DINOv2"""
+    """Анализатор разрыва доменов с использованием DINOv2"""
     
     def __init__(self, config: AnalysisConfig):
         self.config = config
@@ -69,11 +71,13 @@ class DomainGapAnalyzer:
         self.model = None
         self.results = {
             "timestamp": datetime.now().isoformat(),
-            "config": {
-                "model": config.dinov2.model_name,
-                "device": config.dinov2.device,
-                "num_samples": config.dinov2.num_samples
-            }
+            "model": config.dinov2.model_name,
+            "device": config.dinov2.device,
+            "num_samples": config.dinov2.num_samples,
+            "feature_statistics": {},
+            "domain_gap": {},
+            "emd_analysis": {},
+            "visualization": {}
         }
         
     def load_model(self):
@@ -88,20 +92,18 @@ class DomainGapAnalyzer:
         """Извлечение признаков из директории с изображениями"""
         images_dir = image_dir / "images"
         
-        # Поиск изображений
         image_paths = []
         for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
             image_paths.extend(list(images_dir.glob(ext)))
         
         image_paths = sorted(image_paths)
         
-        # Ограничение количества семплов
         if len(image_paths) > self.config.dinov2.num_samples:
             np.random.seed(self.config.dinov2.random_seed)
             indices = np.random.choice(len(image_paths), self.config.dinov2.num_samples, replace=False)
             image_paths = [image_paths[i] for i in indices]
         
-        print(f"\n📊 Извлечение признаков из {dataset_name} ({len(image_paths)} изображений)...")
+        print(f"\n📊 Извлечение признаков из '{dataset_name}' ({len(image_paths)} изображений)...")
         
         dataset = ImageFeatureDataset(image_paths, self.processor, self.config.dinov2.image_size)
         loader = DataLoader(dataset, batch_size=self.config.dinov2.batch_size, 
@@ -124,11 +126,12 @@ class DomainGapAnalyzer:
         
         return features, filenames
     
-    def compute_statistics(self, features: np.ndarray) -> Dict:
+    def compute_statistics(self, features: np.ndarray, domain_name: str) -> Dict:
         """Вычисление статистик распределения признаков"""
         l2_norms = np.linalg.norm(features, axis=1)
         
         return {
+            "domain": domain_name,
             "mean": float(np.mean(features)),
             "std": float(np.std(features)),
             "min": float(np.min(features)),
@@ -139,7 +142,6 @@ class DomainGapAnalyzer:
             "variance": float(np.var(features)),
             "l2_norm_mean": float(np.mean(l2_norms)),
             "l2_norm_std": float(np.std(l2_norms)),
-            "feature_dim": features.shape[1],
             "num_samples": features.shape[0]
         }
     
@@ -148,28 +150,26 @@ class DomainGapAnalyzer:
         print("\n📊 Вычисление EMD...")
         
         emd_values = []
-        for i in tqdm(range(features1.shape[1]), desc="  EMD per channel"):
+        for i in tqdm(range(features1.shape[1]), desc="  EMD по каналам"):
             emd = wasserstein_distance(features1[:, i], features2[:, i])
             emd_values.append(emd)
         
         emd_values = np.array(emd_values)
         
         return {
-            "mean_emd": float(np.mean(emd_values)),
-            "std_emd": float(np.std(emd_values)),
-            "max_emd": float(np.max(emd_values)),
-            "min_emd": float(np.min(emd_values)),
-            "median_emd": float(np.median(emd_values)),
-            "top10_unstable_channels": np.argsort(emd_values)[-10:].tolist(),
-            "bottom10_stable_channels": np.argsort(emd_values)[:10].tolist(),
-            "percentile_95_emd": float(np.percentile(emd_values, 95)),
-            "percentile_75_emd": float(np.percentile(emd_values, 75))
+            "mean": float(np.mean(emd_values)),
+            "std": float(np.std(emd_values)),
+            "max": float(np.max(emd_values)),
+            "min": float(np.min(emd_values)),
+            "median": float(np.median(emd_values)),
+            "percentile_95": float(np.percentile(emd_values, 95)),
+            "percentile_75": float(np.percentile(emd_values, 75)),
+            "top10_channels": np.argsort(emd_values)[-10:].tolist(),
+            "bottom10_channels": np.argsort(emd_values)[:10].tolist()
         }
     
     def compute_similarity_metrics(self, features1: np.ndarray, features2: np.ndarray) -> Dict:
-        """
-        ИСПРАВЛЕННЫЕ метрики схожести доменов
-        """
+        """Вычисление метрик схожести доменов"""
         print("\n📊 Вычисление метрик схожести...")
         
         n_test = min(self.config.dinov2.nn_test_samples, len(features1), len(features2))
@@ -180,7 +180,7 @@ class DomainGapAnalyzer:
         centroid2 = np.mean(features2, axis=0)
         centroid_distance = np.linalg.norm(centroid1 - centroid2)
         
-        # Cosine similarity между центроидами
+        # Косинусное сходство
         cosine_sim = np.dot(centroid1, centroid2) / (np.linalg.norm(centroid1) * np.linalg.norm(centroid2) + 1e-8)
         
         # 1-NN тест
@@ -208,7 +208,7 @@ class DomainGapAnalyzer:
         
         nn_accuracy = correct_same_domain / total if total > 0 else 0.5
         
-        # Intra/inter domain distances
+        # Внутри- и меж-доменные расстояния
         distances_a_to_b = cdist(feats1, feats2, metric='cosine')
         distances_a_to_a = cdist(feats1, feats1, metric='cosine')
         distances_b_to_b = cdist(feats2, feats2, metric='cosine')
@@ -225,12 +225,11 @@ class DomainGapAnalyzer:
         inter_avg = (mean_inter_a_to_b + mean_inter_b_to_a) / 2
         gap_ratio = inter_avg / (intra_avg + 1e-8)
         
-        # Domain Overlap Score
+        # Оценка перекрытия доменов
         overlap_score = 2.0 * (1.0 - nn_accuracy)
         overlap_score = np.clip(overlap_score, 0.0, 1.0)
         
-        # Silhouette-like score
-        # Насколько меж-доменное расстояние больше внутри-доменного
+        # Силуэт-оценка
         silhouette_score = np.mean(
             (np.min(distances_a_to_b, axis=1) - np.min(distances_a_to_a, axis=1)) / 
             (np.maximum(np.min(distances_a_to_b, axis=1), np.min(distances_a_to_a, axis=1)) + 1e-8)
@@ -239,23 +238,18 @@ class DomainGapAnalyzer:
         return {
             "centroid_distance": float(centroid_distance),
             "centroid_cosine_similarity": float(cosine_sim),
-            "mean_intra_domain_distance_A": float(mean_intra_a),
-            "mean_intra_domain_distance_B": float(mean_intra_b),
-            "mean_inter_domain_distance": float(inter_avg),
-            "domain_gap_ratio": float(gap_ratio),
-            "1nn_domain_accuracy": float(nn_accuracy),
-            "1nn_expected_for_identical": 0.5,
-            "domain_overlap_score": float(overlap_score),
-            "domain_silhouette_score": float(silhouette_score),
-            "intra_domain_variance_A": float(np.var(mean_intra_a)),
-            "intra_domain_variance_B": float(np.var(mean_intra_b))
+            "intra_distance_original": float(mean_intra_a),
+            "intra_distance_synthetic": float(mean_intra_b),
+            "inter_distance": float(inter_avg),
+            "gap_ratio": float(gap_ratio),
+            "nn_accuracy": float(nn_accuracy),
+            "overlap_score": float(overlap_score),
+            "silhouette_score": float(silhouette_score)
         }
     
     def visualize_embeddings(self, features_list: List[Tuple[np.ndarray, str]], 
                             output_dir: Path) -> Dict:
-        """
-        Визуализация эмбеддингов: PCA и t-SNE
-        """
+        """Визуализация эмбеддингов: PCA и t-SNE"""
         print("\n📊 Создание визуализаций эмбеддингов...")
         
         viz_config = self.config.visualization
@@ -279,39 +273,40 @@ class DomainGapAnalyzer:
         scaler = StandardScaler()
         features_scaled = scaler.fit_transform(all_features)
         
-        # --- PCA Visualization ---
+        # Словарь цветов и названий для графиков (русские подписи)
+        domain_names = {
+            'original': 'Оригинал',
+            'synthetic': 'Синтетика'
+        }
+        colors = {'original': '#2196F3', 'synthetic': '#FF9800'}
+        
+        # --- PCA Визуализация ---
         pca = PCA(n_components=2)
         features_2d_pca = pca.fit_transform(features_scaled)
         explained_var = pca.explained_variance_ratio_ * 100
         
-        colors = {'original': '#2196F3', 'synthetic': '#FF9800'}
-        
         fig, axes = plt.subplots(1, 2, figsize=viz_config.figsize)
         
-        # PCA scatter с эллипсами
+        # PCA диаграмма рассеяния с эллипсами
         ax1 = axes[0]
         for name in set(all_names):
             mask = np.array([n == name for n in all_names])
             data = features_2d_pca[mask]
             color = colors.get(name, '#999999')
+            display_name = domain_names.get(name, name)
             
-            ax1.scatter(data[:, 0], data[:, 1], c=color, label=name, 
+            ax1.scatter(data[:, 0], data[:, 1], c=color, label=display_name, 
                        alpha=0.5, s=10, edgecolors='none')
             
             # Эллипс 95% доверительного интервала
             if len(data) > 2 and viz_config.pca.get('show_ellipses', True):
                 try:
-                    from matplotlib.patches import Ellipse
-                    import matplotlib.transforms as transforms
-                    
                     cov = np.cov(data.T)
                     mean = np.mean(data, axis=0)
                     
-                    # Собственные значения и векторы
                     eigenvalues, eigenvectors = np.linalg.eigh(cov)
                     angle = np.degrees(np.arctan2(eigenvectors[1, 0], eigenvectors[0, 0]))
                     
-                    # 95% доверительный интервал (2.447 std для 2D)
                     width, height = 2 * np.sqrt(eigenvalues) * 2.447
                     
                     ellipse = Ellipse(xy=mean, width=width, height=height,
@@ -322,9 +317,9 @@ class DomainGapAnalyzer:
                 except Exception as e:
                     print(f"  ⚠️ Не удалось построить эллипс для {name}: {e}")
         
-        ax1.set_xlabel(f'PC1 ({explained_var[0]:.1f}% variance)', fontsize=12)
-        ax1.set_ylabel(f'PC2 ({explained_var[1]:.1f}% variance)', fontsize=12)
-        ax1.set_title('DINOv2 Feature Distribution (PCA)', fontsize=14, fontweight='bold')
+        ax1.set_xlabel(f'Главная компонента 1 ({explained_var[0]:.1f}% дисперсии)', fontsize=12)
+        ax1.set_ylabel(f'Главная компонента 2 ({explained_var[1]:.1f}% дисперсии)', fontsize=12)
+        ax1.set_title('Распределение признаков DINOv2 (PCA)', fontsize=14, fontweight='bold')
         ax1.legend(loc='upper right', fontsize=10)
         ax1.grid(True, alpha=0.3)
         
@@ -345,13 +340,14 @@ class DomainGapAnalyzer:
             ax2.hist(distances, bins=30, alpha=0.7, color='#673AB7', 
                     edgecolor='black', linewidth=0.5)
             ax2.axvline(x=np.mean(distances), color='r', linestyle='--', 
-                       linewidth=2, label=f'Mean: {np.mean(distances):.3f}')
+                       linewidth=2, label=f'Среднее: {np.mean(distances):.3f}')
             ax2.axvline(x=np.median(distances), color='g', linestyle=':', 
-                       linewidth=2, label=f'Median: {np.median(distances):.3f}')
+                       linewidth=2, label=f'Медиана: {np.median(distances):.3f}')
             
-            ax2.set_xlabel('Pairwise distance in PCA space', fontsize=12)
-            ax2.set_ylabel('Frequency', fontsize=12)
-            ax2.set_title(f'Distances: {names_list[0]} vs {names_list[1]}', 
+            display_names = [domain_names.get(n, n) for n in names_list]
+            ax2.set_xlabel('Попарное расстояние в пространстве PCA', fontsize=12)
+            ax2.set_ylabel('Частота', fontsize=12)
+            ax2.set_title(f'Расстояния: {display_names[0]} vs {display_names[1]}', 
                          fontsize=14, fontweight='bold')
             ax2.legend(fontsize=10)
             ax2.grid(True, alpha=0.3)
@@ -359,18 +355,18 @@ class DomainGapAnalyzer:
         plt.tight_layout()
         
         for fmt in viz_config.save_formats:
-            save_path = output_dir / f'pca_visualization.{fmt}'
+            save_path = output_dir / f'pca_визуализация.{fmt}'
             plt.savefig(save_path, dpi=viz_config.dpi, bbox_inches='tight')
         
         plt.close()
         
         results['pca'] = {
-            "explained_variance_ratio": explained_var.tolist(),
-            "total_explained_variance": float(np.sum(explained_var)),
-            "saved_path": str(output_dir / 'pca_visualization.png')
+            "explained_variance": explained_var.tolist(),
+            "total_variance": float(np.sum(explained_var)),
+            "path": str(output_dir / 'pca_визуализация.png')
         }
         
-        # --- t-SNE Visualization ---
+        # --- t-SNE Визуализация ---
         if viz_config.tsne.get('enabled', False):
             print("  Создание t-SNE визуализации...")
             
@@ -380,7 +376,7 @@ class DomainGapAnalyzer:
             tsne = TSNE(
                 n_components=2, 
                 perplexity=viz_config.tsne.get('perplexity', 30),
-                max_iter=viz_config.tsne.get('max_iter', 1000),     # ← правильно
+                max_iter=viz_config.tsne.get('max_iter', 1000),
                 random_state=self.config.dinov2.random_seed
             )
             
@@ -392,168 +388,166 @@ class DomainGapAnalyzer:
             for name in set(names_tsne):
                 mask = np.array([n == name for n in names_tsne])
                 color = colors.get(name, '#999999')
+                display_name = domain_names.get(name, name)
                 ax.scatter(features_2d_tsne[mask, 0], features_2d_tsne[mask, 1],
-                          c=color, label=name, alpha=0.6, s=15, edgecolors='none')
+                          c=color, label=display_name, alpha=0.6, s=15, edgecolors='none')
             
-            ax.set_xlabel('t-SNE Component 1', fontsize=12)
-            ax.set_ylabel('t-SNE Component 2', fontsize=12)
-            ax.set_title('DINOv2 Feature Distribution (t-SNE)', fontsize=14, fontweight='bold')
+            ax.set_xlabel('t-SNE Компонента 1', fontsize=12)
+            ax.set_ylabel('t-SNE Компонента 2', fontsize=12)
+            ax.set_title('Распределение признаков DINOv2 (t-SNE)', fontsize=14, fontweight='bold')
             ax.legend(fontsize=10)
             ax.grid(True, alpha=0.3)
             
             plt.tight_layout()
             
             for fmt in viz_config.save_formats:
-                plt.savefig(output_dir / f'tsne_visualization.{fmt}', 
+                plt.savefig(output_dir / f'tsne_визуализация.{fmt}', 
                           dpi=viz_config.dpi, bbox_inches='tight')
             
             plt.close()
             
             results['tsne'] = {
                 "perplexity": viz_config.tsne.get('perplexity', 30),
-                "saved_path": str(output_dir / 'tsne_visualization.png')
+                "path": str(output_dir / 'tsne_визуализация.png')
             }
         
         print("✅ Визуализации сохранены")
         return results
     
     def generate_report(self, output_dir: Path) -> str:
-        """Генерация человекочитаемого отчёта"""
+        """Генерация текстового отчёта на русском языке"""
         thresholds = self.config.thresholds
         
-        original_stats = self.results.get('original_statistics', {})
-        synthetic_stats = self.results.get('synthetic_statistics', {})
-        similarity = self.results.get('similarity_metrics', {})
-        emd_data = self.results.get('emd_metrics', {})
+        orig_stats = self.results.get('feature_statistics', {}).get('original', {})
+        synth_stats = self.results.get('feature_statistics', {}).get('synthetic', {})
+        similarity = self.results.get('domain_gap', {})
+        emd_data = self.results.get('emd_analysis', {})
         
         report = []
         report.append("=" * 80)
-        report.append("🔬 DOMAIN GAP ANALYSIS REPORT")
+        report.append("🔬 АНАЛИЗ РАЗРЫВА ДОМЕНОВ (DOMAIN GAP)")
         report.append("=" * 80)
-        report.append(f"Generated: {self.results['timestamp']}")
-        report.append(f"Model: {self.config.dinov2.model_name}")
-        report.append(f"Device: {self.config.dinov2.device}")
+        report.append(f"Создан: {self.results.get('timestamp', 'N/A')}")
+        report.append(f"Модель: {self.config.dinov2.model_name}")
+        report.append(f"Устройство: {self.config.dinov2.device}")
         report.append("")
         
         # Секция 1: Статистики признаков
         report.append("-" * 80)
-        report.append("1. FEATURE DISTRIBUTION STATISTICS")
+        report.append("1. СТАТИСТИКИ РАСПРЕДЕЛЕНИЯ ПРИЗНАКОВ")
         report.append("-" * 80)
-        report.append(f"{'Metric':<30} {'Original':<15} {'Synthetic':<15} {'Diff %':<15}")
+        report.append(f"{'Метрика':<30} {'Оригинал':<15} {'Синтетика':<15} {'Разница %':<15}")
         report.append("-" * 80)
         
-        for key in ['mean', 'std', 'variance', 'l2_norm_mean']:
-            orig_val = original_stats.get(key, 0)
-            syn_val = synthetic_stats.get(key, 0)
-            diff_pct = abs(syn_val - orig_val) / (abs(orig_val) + 1e-8) * 100
-            report.append(f"{key:<30} {orig_val:<15.6f} {syn_val:<15.6f} {diff_pct:<15.2f}%")
+        for key, display_name in [('mean', 'Среднее'), ('std', 'Станд. откл.'), 
+                                   ('variance', 'Дисперсия'), ('l2_norm_mean', 'L2-норма (сред.)')]:
+            orig_val = orig_stats.get(key, 0)
+            synth_val = synth_stats.get(key, 0)
+            diff_pct = abs(synth_val - orig_val) / (abs(orig_val) + 1e-8) * 100
+            report.append(f"{display_name:<30} {orig_val:<15.6f} {synth_val:<15.6f} {diff_pct:<15.2f}%")
         
         report.append("")
         
         # Секция 2: Метрики схожести
         report.append("-" * 80)
-        report.append("2. DOMAIN SIMILARITY METRICS")
+        report.append("2. МЕТРИКИ СХОЖЕСТИ ДОМЕНОВ")
         report.append("-" * 80)
         
-        overlap = similarity.get('domain_overlap_score', 0)
-        nn_acc = similarity.get('1nn_domain_accuracy', 1.0)
-        gap_ratio = similarity.get('domain_gap_ratio', 999)
-        silhouette = similarity.get('domain_silhouette_score', 0)
+        overlap = similarity.get('overlap_score', 0)
+        nn_acc = similarity.get('nn_accuracy', 1.0)
+        gap_ratio = similarity.get('gap_ratio', 999)
+        cosine_sim = similarity.get('centroid_cosine_similarity', 0)
         
-        report.append(f"  {'Centroid Cosine Similarity:':<40} {similarity.get('centroid_cosine_similarity', 0):.4f}")
-        report.append(f"  {'1-NN Domain Accuracy:':<40} {nn_acc:.4f} (0.50 = indistinguishable)")
-        report.append(f"  {'Domain Overlap Score:':<40} {overlap:.4f} (1.00 = complete overlap)")
-        report.append(f"  {'Domain Gap Ratio:':<40} {gap_ratio:.4f} (1.00 = identical)")
-        report.append(f"  {'Domain Silhouette Score:':<40} {silhouette:.4f} (<0 = overlapped)")
-        report.append(f"  {'Intra-domain Distance (A):':<40} {similarity.get('mean_intra_domain_distance_A', 0):.6f}")
-        report.append(f"  {'Intra-domain Distance (B):':<40} {similarity.get('mean_intra_domain_distance_B', 0):.6f}")
-        report.append(f"  {'Inter-domain Distance:':<40} {similarity.get('mean_inter_domain_distance', 0):.6f}")
+        report.append(f"  {'Косинусное сходство центроидов:':<40} {cosine_sim:.4f}")
+        report.append(f"  {'Точность 1-NN классификации:':<40} {nn_acc:.4f} (0.50 = неразличимы)")
+        report.append(f"  {'Оценка перекрытия доменов:':<40} {overlap:.4f} (1.00 = полное перекрытие)")
+        report.append(f"  {'Коэффициент разрыва доменов:':<40} {gap_ratio:.4f} (1.00 = идентичны)")
+        report.append(f"  {'Внутридоменное расстояние (Оригинал):':<40} {similarity.get('intra_distance_original', 0):.6f}")
+        report.append(f"  {'Внутридоменное расстояние (Синтетика):':<40} {similarity.get('intra_distance_synthetic', 0):.6f}")
+        report.append(f"  {'Междоменное расстояние:':<40} {similarity.get('inter_distance', 0):.6f}")
         
         report.append("")
         
         # Секция 3: EMD
         report.append("-" * 80)
-        report.append("3. EARTH MOVER'S DISTANCE (PER CHANNEL)")
+        report.append("3. РАССТОЯНИЕ EARTH MOVER'S (ПОКАНАЛЬНО)")
         report.append("-" * 80)
-        report.append(f"  {'Mean EMD:':<30} {emd_data.get('mean_emd', 0):.6f}")
-        report.append(f"  {'Median EMD:':<30} {emd_data.get('median_emd', 0):.6f}")
-        report.append(f"  {'95th Percentile EMD:':<30} {emd_data.get('percentile_95_emd', 0):.6f}")
-        report.append(f"  {'Max EMD:':<30} {emd_data.get('max_emd', 0):.6f}")
-        report.append(f"  {'Top 10 Unstable Channels:':<30} {emd_data.get('top10_unstable_channels', [])}")
+        report.append(f"  {'Среднее EMD:':<30} {emd_data.get('mean', 0):.6f}")
+        report.append(f"  {'Медиана EMD:':<30} {emd_data.get('median', 0):.6f}")
+        report.append(f"  {'95-й процентиль EMD:':<30} {emd_data.get('percentile_95', 0):.6f}")
+        report.append(f"  {'Максимум EMD:':<30} {emd_data.get('max', 0):.6f}")
         
         report.append("")
         
         # Секция 4: Интерпретация
         report.append("-" * 80)
-        report.append("4. QUALITY INTERPRETATION")
+        report.append("4. ИНТЕРПРЕТАЦИЯ КАЧЕСТВА")
         report.append("-" * 80)
         
-        # Используем пороги из конфигурации
         t_overlap = thresholds.domain_overlap
         
         if overlap > t_overlap['excellent'] and nn_acc < 0.55:
-            quality = "✅ EXCELLENT"
+            quality = "✅ ОТЛИЧНО"
             details = [
-                "Synthetic data is nearly indistinguishable from original",
-                "Feature distributions heavily overlap",
-                "1-NN classifier cannot separate domains (< 55% accuracy)",
-                "Recommendation: Use synthetic data without restrictions"
+                "Синтетические данные практически неотличимы от оригинальных",
+                "Распределения признаков значительно перекрываются",
+                "1-NN классификатор не может разделить домены (< 55% точности)",
+                "Рекомендация: Использовать синтетические данные без ограничений"
             ]
         elif overlap > t_overlap['good'] and nn_acc < 0.65:
-            quality = "🟡 GOOD"
+            quality = "🟡 ХОРОШО"
             details = [
-                "Synthetic data is close to original with minor shift",
-                "Distributions mostly overlap",
-                "1-NN classifier shows moderate separability (55-65%)",
-                "Recommendation: Use synthetic with weight 0.3-0.5"
+                "Синтетические данные близки к оригиналам с небольшим сдвигом",
+                "Распределения в основном перекрываются",
+                "1-NN классификатор показывает умеренную разделимость (55-65%)",
+                "Рекомендация: Использовать синтетику с весом 0.3-0.5"
             ]
         elif overlap > t_overlap['satisfactory'] and nn_acc < 0.75:
-            quality = "🟠 SATISFACTORY"
+            quality = "🟠 УДОВЛЕТВОРИТЕЛЬНО"
             details = [
-                "Noticeable domain gap between synthetic and original",
-                "Distributions partially overlap",
-                "1-NN classifier separates domains well (65-75%)",
-                "Recommendation: Reduce strength to 0.05-0.10"
+                "Заметный разрыв между синтетикой и оригиналами",
+                "Распределения частично перекрываются",
+                "1-NN классификатор хорошо разделяет домены (65-75%)",
+                "Рекомендация: Уменьшить силу аугментации до 0.05-0.10"
             ]
         elif overlap > t_overlap['poor']:
-            quality = "🔴 POOR"
+            quality = "🔴 ПЛОХО"
             details = [
-                "Strong domain gap",
-                "Distributions significantly differ",
-                "1-NN classifier easily separates domains (> 75%)",
-                "Recommendation: Reduce strength to 0.02-0.05"
+                "Сильный разрыв доменов",
+                "Распределения значительно различаются",
+                "1-NN классификатор легко разделяет домены (> 75%)",
+                "Рекомендация: Уменьшить силу аугментации до 0.02-0.05"
             ]
         else:
-            quality = "⛔ CRITICAL"
+            quality = "⛔ КРИТИЧЕСКИ"
             details = [
-                "Synthetic completely misaligned with original",
-                "Distributions barely overlap",
-                "1-NN classifier achieves 100% accuracy",
-                "Recommendation: Review generation parameters entirely"
+                "Синтетика полностью не совпадает с оригиналами",
+                "Распределения практически не перекрываются",
+                "1-NN классификатор достигает 100% точности",
+                "Рекомендация: Полностью пересмотреть параметры генерации"
             ]
         
-        report.append(f"\n  Synthetic Quality: {quality}")
-        report.append(f"  Domain Overlap Score: {overlap:.3f}/1.000")
-        report.append(f"  1-NN accuracy (closer to 0.5 is better): {nn_acc:.3f}")
+        report.append(f"\n  Качество синтетики: {quality}")
+        report.append(f"  Оценка перекрытия доменов: {overlap:.3f}/1.000")
+        report.append(f"  Точность 1-NN (чем ближе к 0.5, тем лучше): {nn_acc:.3f}")
         report.append("")
         for detail in details:
             report.append(f"  • {detail}")
         
         report.append("")
         report.append("=" * 80)
-        report.append("HOW TO READ METRICS:")
-        report.append("  Domain Overlap Score: 1.0 = perfect, 0.0 = completely different domains")
-        report.append("  1-NN accuracy: 0.50 = domains indistinguishable (good)")
-        report.append("               0.75+ = domains easily separable (bad)")
-        report.append("  Cosine similarity: >0.95 = excellent, <0.85 = poor")
-        report.append("  Domain Gap Ratio: ~1.0 = identical domains, >2.0 = strong gap")
-        report.append("  Silhouette Score: <0 = domains overlap, >0.5 = well separated")
+        report.append("КАК ЧИТАТЬ МЕТРИКИ:")
+        report.append("  Оценка перекрытия доменов: 1.0 = идеально, 0.0 = полностью разные домены")
+        report.append("  Точность 1-NN: 0.50 = домены неразличимы (хорошо)")
+        report.append("                 0.75+ = домены легко разделимы (плохо)")
+        report.append("  Косинусное сходство: >0.95 = отлично, <0.85 = плохо")
+        report.append("  Коэффициент разрыва доменов: ~1.0 = идентичны, >2.0 = сильный разрыв")
         report.append("=" * 80)
         
         report_text = "\n".join(report)
         
         # Сохраняем отчёт
-        report_path = output_dir / "domain_gap_report.txt"
+        report_path = output_dir / "отчёт_разрыва_доменов.txt"
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_text)
         
@@ -561,26 +555,28 @@ class DomainGapAnalyzer:
         return report_text
     
     def analyze(self, original_dir: Path, synthetic_dir: Path, output_dir: Path) -> Dict:
-        """Полный анализ domain gap"""
+        """Полный анализ разрыва доменов"""
         print("=" * 80)
-        print("🔬 DOMAIN GAP ANALYSIS")
+        print("🔬 АНАЛИЗ РАЗРЫВА ДОМЕНОВ")
         print("=" * 80)
         
         # Извлечение признаков
-        original_features, original_names = self.extract_features(original_dir, "original")
-        synthetic_features, synthetic_names = self.extract_features(synthetic_dir, "synthetic")
+        original_features, _ = self.extract_features(original_dir, "оригинал")
+        synthetic_features, _ = self.extract_features(synthetic_dir, "синтетика")
         
         # Статистики
-        self.results['original_statistics'] = self.compute_statistics(original_features)
-        self.results['synthetic_statistics'] = self.compute_statistics(synthetic_features)
+        self.results['feature_statistics'] = {
+            'original': self.compute_statistics(original_features, "original"),
+            'synthetic': self.compute_statistics(synthetic_features, "synthetic")
+        }
         
         # Метрики схожести
-        self.results['similarity_metrics'] = self.compute_similarity_metrics(
+        self.results['domain_gap'] = self.compute_similarity_metrics(
             original_features, synthetic_features
         )
         
         # EMD
-        self.results['emd_metrics'] = self.compute_per_channel_emd(
+        self.results['emd_analysis'] = self.compute_per_channel_emd(
             original_features, synthetic_features
         )
         
@@ -594,9 +590,9 @@ class DomainGapAnalyzer:
         )
         self.results['visualization'] = viz_results
         
-        # Сохраняем JSON результаты
+        # Сохраняем JSON результаты (только английские ключи)
         json_path = output_dir / "domain_gap_results.json"
-        with open(json_path, 'w') as f:
+        with open(json_path, 'w', encoding='utf-8') as f:
             def convert(obj):
                 if isinstance(obj, (np.integer,)):
                     return int(obj)
@@ -608,19 +604,19 @@ class DomainGapAnalyzer:
             
             json.dump(self.results, f, indent=2, default=convert)
         
-        print(f"\n✅ JSON results saved: {json_path}")
+        print(f"\n✅ JSON результаты сохранены: {json_path}")
         
-        # Генерируем отчёт
+        # Генерируем русский текстовый отчёт
         self.generate_report(output_dir)
         
-        print(f"\n✅ All results saved to: {output_dir}")
+        print(f"\n✅ Все результаты сохранены в: {output_dir}")
         print("=" * 80)
         
         return self.results
 
 
 def run_domain_gap_analysis(config: AnalysisConfig) -> Dict:
-    """Запуск анализа domain gap"""
+    """Запуск анализа разрыва доменов"""
     analyzer = DomainGapAnalyzer(config)
     analyzer.load_model()
     

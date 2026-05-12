@@ -1,5 +1,4 @@
-# analysis/synthetic/utils/io_utils.py
-"""IO utility functions"""
+"""Утилиты ввода-вывода"""
 
 import json
 import numpy as np
@@ -8,7 +7,7 @@ from typing import Any, Dict, List
 
 
 class NumpyEncoder(json.JSONEncoder):
-    """JSON encoder that handles numpy types"""
+    """JSON кодировщик с поддержкой numpy типов"""
     def default(self, obj):
         if isinstance(obj, (np.integer,)):
             return int(obj)
@@ -22,13 +21,13 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 def save_json(data: Dict, path: Path, indent: int = 2):
-    """Save dictionary to JSON file"""
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=indent, cls=NumpyEncoder)
-    print(f"  ✓ Saved: {path}")
+    """Сохранить словарь в JSON файл"""
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=indent, ensure_ascii=False, cls=NumpyEncoder)
+    print(f"  ✓ Сохранено: {path}")
 
 
 def load_json(path: Path) -> Dict:
-    """Load JSON file"""
-    with open(path, 'r') as f:
+    """Загрузить JSON файл"""
+    with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)

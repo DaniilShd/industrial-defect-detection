@@ -23,6 +23,13 @@ results/
 results/defective_dataset/
 results/final_dataset/
 results/synthetic_backgrounds/
+analysis/synthetic/reports
+analysis/original/reports
+distillation/backbone_distillation/detectors
+distillation/backbone_distillation/pretrain
+distillation/backbone_distillation/reports_v1
+distillation/report
+mlruns
 
 # Python
 __pycache__/

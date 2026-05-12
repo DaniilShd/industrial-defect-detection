@@ -4,7 +4,7 @@
 
 # Пути
 paths:
-  synthetic_dir: "/app/data/experiment/synthetic/train"
+  synthetic_dir: "/app/data/results_v2/ablation/abl_014_r0/dataset/train"
   original_dir: "/app/data/processed/balanced_defect_patches/train"
   output_dir: "/app/analysis/synthetic/reports"
   

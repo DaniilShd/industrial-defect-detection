@@ -20,23 +20,25 @@ paths:
   real_train: "/app/data/processed/balanced_defect_patches_v2/train"
   real_val: "/app/data/processed/balanced_defect_patches_v2/val"
   real_test: "/app/data/processed/balanced_defect_patches_v2/test"
-  results_dir: "/app/data/results_v2/ablation"
+  results_dir: "/app/data/results_v3/ablation"
 
 # ============================================================
 # СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
 # ============================================================
 grid:
   sd_defect_strength:
-    - 0.15
+    # - 0.15
     - 0.25
+    - 0.35
 
   sd_background_strength:
     - 0.05
     - 0.12
 
   high_freq_alpha:
-    - 0.2
+    # - 0.2
     - 0.4
+    - 0.6
 
   variants:
     - 2
@@ -91,4 +93,4 @@ fixed_generation:
 # MLflow
 mlflow:
   tracking_uri: "file:///app/mlruns"
-  experiment_name: "ablation_synthetic"
+  experiment_name: "ablation_synthetic_v3"

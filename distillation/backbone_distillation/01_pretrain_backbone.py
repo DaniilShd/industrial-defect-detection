@@ -8,7 +8,7 @@
   3. Дистилляция через LightlyTrain API (distillationv3)
   4. Сохранение предобученного бэкбона
 
-Учитель: dinov3/convnext-large (230M, дообучен на дефектах)
+Учитель: dinov3/vits16-ltdetr-coco дообучен на дефектах
 Ученик: torchvision/resnet18
 Метод: distillation (глобальные + локальные признаки)
 """
@@ -143,13 +143,14 @@ def pretrain_backbone(config: dict) -> str:
     
     # Настройка метода дистилляции
     method_args = {
-        "teacher": teacher_cfg['model'],
+        "teacher": teacher_cfg['model'].replace('-ltdetr-coco', ''),
     }
     
     # Если есть собственные веса учителя (дообученного на дефектах)
-    if teacher_cfg.get('weights') and Path(teacher_cfg['weights']).exists():
-        logger.info(f"Using custom teacher weights: {teacher_cfg['weights']}")
-        method_args["teacher_weights"] = teacher_cfg['weights']
+    distillation_weights = teacher_cfg.get('distillation_weights')
+    if distillation_weights and Path(distillation_weights).exists():
+        logger.info(f"Using custom teacher weights for distillation: {distillation_weights}")
+        method_args["teacher_weights"] = distillation_weights
     else:
         logger.info("Using default pretrained teacher weights")
     
@@ -169,14 +170,15 @@ def pretrain_backbone(config: dict) -> str:
             transform_args={
                 "image_size": tuple(pretrain_cfg['image_size'])
             },
-            loggers={
-                "mlflow": {
-                    "experiment_name": config['mlflow']['experiment_name'],
-                    "run_name": "resnet18_backbone_distillation",
-                    "tracking_uri": config['mlflow']['tracking_uri'],
-                },
-                "tensorboard": {}
-            },
+            overwrite=True, 
+            # loggers={
+            #     "mlflow": {
+            #         "experiment_name": config['mlflow']['experiment_name'],
+            #         "run_name": "resnet18_backbone_distillation",
+            #         "tracking_uri": config['mlflow']['tracking_uri'],
+            #     },
+            #     "tensorboard": {}
+            # },
         )
         
         elapsed_hours = (datetime.now() - start_time).total_seconds() / 3600

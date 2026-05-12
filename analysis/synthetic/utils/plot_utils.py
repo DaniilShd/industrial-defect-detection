@@ -1,5 +1,4 @@
-# analysis/synthetic/utils/plot_utils.py
-"""Plotting utility functions"""
+"""Утилиты для построения графиков"""
 
 import matplotlib
 matplotlib.use('Agg')
@@ -8,9 +7,13 @@ import seaborn as sns
 from pathlib import Path
 from typing import Optional, List, Tuple
 
+# Настройка русского шрифта
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['axes.unicode_minus'] = False
+
 
 def setup_style(style: str = "whitegrid"):
-    """Setup matplotlib style"""
+    """Настройка стиля matplotlib"""
     sns.set_style(style)
     plt.rcParams['font.size'] = 12
     plt.rcParams['axes.titlesize'] = 14
@@ -19,7 +22,7 @@ def setup_style(style: str = "whitegrid"):
 
 def save_figure(fig: plt.Figure, path: Path, dpi: int = 150, 
                 formats: List[str] = None, close: bool = True):
-    """Save figure in multiple formats"""
+    """Сохранить график в нескольких форматах"""
     if formats is None:
         formats = ['png']
     
@@ -30,14 +33,14 @@ def save_figure(fig: plt.Figure, path: Path, dpi: int = 150,
     for fmt in formats:
         save_path = path.parent / f"{stem}.{fmt}"
         fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
-        print(f"  ✓ Saved: {save_path}")
+        print(f"  ✓ Сохранено: {save_path}")
     
     if close:
         plt.close(fig)
 
 
 def add_value_labels(ax, bars, fmt: str = '{:.0f}', offset: float = 0.02):
-    """Add value labels on top of bars"""
+    """Добавить подписи значений над столбцами"""
     max_height = max(bar.get_height() for bar in bars)
     
     for bar in bars:

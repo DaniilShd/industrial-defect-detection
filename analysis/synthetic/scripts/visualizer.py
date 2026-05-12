@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Визуализация синтетических изображений: side-by-side, bbox, grid"""
+"""Визуализация синтетических изображений: сравнение, рамки, сетки"""
 
 import logging
 from pathlib import Path
@@ -25,14 +25,14 @@ class SyntheticVisualizer:
     def __init__(self, config: AnalysisConfig):
         self.config = config
         self.colors = {
-            0: (0, 255, 0),      # green
-            1: (255, 0, 0),      # blue
-            2: (0, 0, 255),      # red
-            3: (255, 255, 0)     # cyan
+            0: (0, 255, 0),      # зелёный
+            1: (255, 0, 0),      # синий
+            2: (0, 0, 255),      # красный
+            3: (255, 255, 0)     # голубой
         }
     
     def draw_bboxes(self, img: np.ndarray, label_path: Path) -> np.ndarray:
-        """Отрисовка YOLO bbox на изображении"""
+        """Отрисовка ограничивающих рамок YOLO на изображении"""
         if not label_path.exists():
             return img
         
@@ -48,26 +48,26 @@ class SyntheticVisualizer:
             
             color = self.colors.get(cls, (255, 255, 255))
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(img, f"Class {cls}", (x1, y1 - 5),
+            cv2.putText(img, f"Класс {cls}", (x1, y1 - 5),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
         
         return img
     
     def create_side_by_side(self, original_path: Path, synthetic_path: Path,
                            orig_label: Path, synth_label: Path) -> np.ndarray:
-        """Создание side-by-side сравнения оригинал vs синтетика"""
+        """Создание попарного сравнения оригинал vs синтетика"""
         orig = cv2.imread(str(original_path))
         synth = cv2.imread(str(synthetic_path))
         
         if orig is None or synth is None:
             return None
         
-        # Ресайз до одинакового размера
+        # Изменение размера до одинакового
         target_size = 640
         orig = cv2.resize(orig, (target_size, target_size))
         synth = cv2.resize(synth, (target_size, target_size))
         
-        # Отрисовка bbox
+        # Отрисовка рамок
         orig = self.draw_bboxes(orig, orig_label)
         synth = self.draw_bboxes(synth, synth_label)
         
@@ -79,16 +79,16 @@ class SyntheticVisualizer:
         result[20:20+h, w+10:w*2+10] = synth
         
         # Подписи
-        cv2.putText(result, "ORIGINAL", (10, 15),
+        cv2.putText(result, "ОРИГИНАЛ", (10, 15),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-        cv2.putText(result, "SYNTHETIC", (w + 20, 15),
+        cv2.putText(result, "СИНТЕТИКА", (w + 20, 15),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
         
         return result
     
     def create_grid(self, image_paths: List[Path], labels_dir: Path,
                    rows: int = 4, cols: int = 5) -> np.ndarray:
-        """Создание сетки изображений с bbox"""
+        """Создание сетки изображений с рамками"""
         target_size = 640
         grid_h = rows * target_size + (rows + 1) * 10
         grid_w = cols * target_size + (cols + 1) * 10
@@ -129,11 +129,11 @@ class SyntheticVisualizer:
                             list((synthetic_dir / "images").glob("*.jpg")))
         
         if not orig_images or not synth_images:
-            logger.warning("No images found for visualization")
+            logger.warning("Изображения не найдены для визуализации")
             return
         
-        # Side-by-side сравнения
-        logger.info("Creating side-by-side comparisons...")
+        # Попарные сравнения
+        logger.info("Создание попарных сравнений...")
         
         comparisons_dir = viz_dir / "comparisons"
         comparisons_dir.mkdir(exist_ok=True)
@@ -143,7 +143,6 @@ class SyntheticVisualizer:
         
         pairs = []
         for synth_img in synth_images[:num_samples]:
-            # Ищем оригинал с похожим именем
             synth_stem = synth_img.stem.replace('syn_', '').split('_v')[0]
             for orig_stem, orig_img in orig_by_stem.items():
                 if synth_stem in orig_stem or orig_stem in synth_stem:
@@ -156,22 +155,22 @@ class SyntheticVisualizer:
             
             comparison = self.create_side_by_side(orig, synth, orig_label, synth_label)
             if comparison is not None:
-                cv2.imwrite(str(comparisons_dir / f"comparison_{i:03d}.png"), comparison)
+                cv2.imwrite(str(comparisons_dir / f"сравнение_{i:03d}.png"), comparison)
         
-        logger.info(f"Created {len(pairs[:num_samples])} comparisons")
+        logger.info(f"Создано {len(pairs[:num_samples])} сравнений")
         
-        # Grid визуализации
-        logger.info("Creating grid visualizations...")
+        # Визуализации сеткой
+        logger.info("Создание сеток изображений...")
         
-        # Original grid
+        # Сетка оригиналов
         orig_grid = self.create_grid(orig_images[:20], original_dir / "labels")
-        cv2.imwrite(str(viz_dir / "original_grid.png"), orig_grid)
+        cv2.imwrite(str(viz_dir / "сетка_оригиналов.png"), orig_grid)
         
-        # Synthetic grid
+        # Сетка синтетики
         synth_grid = self.create_grid(synth_images[:20], synthetic_dir / "labels")
-        cv2.imwrite(str(viz_dir / "synthetic_grid.png"), synth_grid)
+        cv2.imwrite(str(viz_dir / "сетка_синтетики.png"), synth_grid)
         
-        logger.info("Grid visualizations created")
+        logger.info("Сетки изображений созданы")
     
     def create_difference_maps(self, original_dir: Path, synthetic_dir: Path,
                               output_dir: Path, num_samples: int = 10):
@@ -195,7 +194,7 @@ class SyntheticVisualizer:
                     pairs.append((orig_img, synth_img))
                     break
         
-        logger.info("Creating difference maps...")
+        logger.info("Создание карт различий...")
         
         for i, (orig_path, synth_path) in enumerate(pairs[:num_samples]):
             orig = cv2.imread(str(orig_path))
@@ -204,7 +203,7 @@ class SyntheticVisualizer:
             if orig is None or synth is None:
                 continue
             
-            # Ресайз
+            # Изменение размера
             target_size = 640
             orig = cv2.resize(orig, (target_size, target_size))
             synth = cv2.resize(synth, (target_size, target_size))
@@ -226,14 +225,14 @@ class SyntheticVisualizer:
             composite[20:20+h, w*2+20:w*3+20] = diff_enhanced
             composite[20:20+h, w*3+30:w*4+30] = diff_heatmap
             
-            labels = ["ORIGINAL", "SYNTHETIC", "DIFFERENCE", "HEATMAP"]
+            labels = ["ОРИГИНАЛ", "СИНТЕТИКА", "РАЗНИЦА", "ТЕПЛОВАЯ КАРТА"]
             for j, label in enumerate(labels):
                 cv2.putText(composite, label, (10 + j*(w+10), 15),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
             
-            cv2.imwrite(str(diff_dir / f"diff_{i:03d}.png"), composite)
+            cv2.imwrite(str(diff_dir / f"разница_{i:03d}.png"), composite)
         
-        logger.info(f"Created {len(pairs[:num_samples])} difference maps")
+        logger.info(f"Создано {len(pairs[:num_samples])} карт различий")
     
     def create_class_samples_grid(self, synthetic_dir: Path, output_dir: Path):
         """Создание сеток примеров для каждого класса"""
@@ -243,7 +242,7 @@ class SyntheticVisualizer:
         labels_dir = synthetic_dir / "labels"
         images_dir = synthetic_dir / "images"
         
-        # Группируем изображения по классам
+        # Группировка изображений по классам
         class_images = {i: [] for i in range(4)}
         
         for label_file in labels_dir.glob("*.txt"):
@@ -258,26 +257,26 @@ class SyntheticVisualizer:
                 if img_path.exists():
                     class_images[cls].append(img_path)
         
-        # Создаем сетки
+        # Создание сеток
         for cls, img_paths in class_images.items():
             if not img_paths:
                 continue
             
             samples = random.sample(img_paths, min(16, len(img_paths)))
             grid = self.create_grid(samples, labels_dir, rows=4, cols=4)
-            cv2.imwrite(str(class_dir / f"class_{cls}_samples.png"), grid)
+            cv2.imwrite(str(class_dir / f"класс_{cls}_примеры.png"), grid)
         
-        logger.info("Class sample grids created")
+        logger.info("Сетки примеров по классам созданы")
     
     def analyze(self, original_dir: Path, synthetic_dir: Path, output_dir: Path):
         """Запуск всех визуализаций"""
         logger.info("=" * 80)
-        logger.info("📊 SYNTHETIC DATA VISUALIZATION")
+        logger.info("📊 ВИЗУАЛИЗАЦИЯ СИНТЕТИЧЕСКИХ ДАННЫХ")
         logger.info("=" * 80)
         
         num_samples = self.config.visualization.random_samples
         
-        # Side-by-side сравнения
+        # Попарные сравнения
         self.create_defect_comparison(original_dir, synthetic_dir, 
                                       output_dir, num_samples)
         
@@ -288,7 +287,7 @@ class SyntheticVisualizer:
         # Сетки по классам
         self.create_class_samples_grid(synthetic_dir, output_dir)
         
-        logger.info("Visualization complete")
+        logger.info("Визуализация завершена")
 
 
 def run_visualization(config: AnalysisConfig) -> None:

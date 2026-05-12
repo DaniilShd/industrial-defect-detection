@@ -33,6 +33,9 @@ shell-experiments:
 up-mlflow:
 	docker compose up -d mlflow
 
+shell-distillation:
+	docker exec -it distillation /bin/bash
+
 
 # # Дефектные патчи (по умолчанию)
 # python generation/scripts/05_visualize_bboxes.py --samples 20
