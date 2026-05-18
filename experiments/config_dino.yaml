@@ -37,18 +37,18 @@ datasets:
 training:
   model: "dinov3/vits16-ltdetr-coco"
   gradient_accumulation_steps: 1
-  fixed_epochs: 10
+  fixed_epochs: 10                    # 🔥 ФИКСИРОВАННЫЕ ЭПОХИ
+  # max_steps больше не нужен — вычисляется автоматически
   val_every_steps: 500
   lr: 0.0001
   batch_size: 8
   eval_conf_threshold: 0.001
   conf_threshold: 0.25
 
-# ★★★ SSL настройки — distillation вместо dino ★★★
+# SSL настройки
 ssl:
-  method: "distillation"             # ← distillation вместо dino
   batch_size: 64
-  gradient_accumulation_steps: 4     # эффективный batch = 256
+  gradient_accumulation_steps: 4
   epochs_per_dataset:
     real_baseline: 400
     real_augmented: 400
@@ -56,10 +56,10 @@ ssl:
     real_plus_synthetic_aug: 400
     mixed_full: 400
     real_augmented_massive: 400
-    real_augmented_3x: 400           # ← 200 → 400 для единообразия
+    real_augmented_3x: 200
     real_plus_synthetic_original: 400
 
-seeds: [42]
+seeds: [42]  # [42, 123, 777] для стат. значимости
 
 statistics:
   alpha: 0.05

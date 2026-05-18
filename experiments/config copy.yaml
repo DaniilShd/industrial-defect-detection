@@ -1,0 +1,69 @@
+experiment:
+  name: "synthetic_data_efficacy"
+  description: "Влияние синтетических данных на качество LT-DETR детекции дефектов"
+  author: "магистерская диссертация"
+
+paths:
+  experiment_data: "/app/data/experiment_v2/datasets"
+  results_dir: "/app/data/experiment_v2/reports"
+  models_dir: "/app/data/experiment_v2/models"
+
+datasets:
+  real_baseline:
+    data_yaml: "real_baseline/data.yaml"
+    type: "baseline"
+  real_augmented:
+    data_yaml: "real_augmented/data.yaml"
+    type: "augmented"
+  synthetic_full:
+    data_yaml: "synthetic_full/data.yaml"
+    type: "synthetic_only"
+  real_plus_synthetic_aug:
+    data_yaml: "real_plus_synthetic_aug/data.yaml"
+    type: "mixed"
+  mixed_full:
+    data_yaml: "mixed_full/data.yaml"
+    type: "mixed"
+
+training:
+  model: "dinov3/vits16-ltdetr-coco"
+  gradient_accumulation_steps: 1
+  max_steps:
+    real_baseline: 1600              # 10 эпох
+    real_augmented: 4770             # 10 эпох
+    synthetic_full: 6350            # 10 эпох
+    real_plus_synthetic_aug: 4770    # 10 эпох
+    mixed_full: 11120                # 10 эпох
+  val_every_steps: 1000
+  lr: 0.0001
+  batch_size: 8
+  eval_conf_threshold: 0.001
+  conf_threshold: 0.25
+
+# SSL настройки (используются в exp3_ssl)
+ssl:
+  batch_size: 64
+  epochs_per_dataset:  # Индивидуальные эпохи SSL для каждого датасета
+    real_baseline: 400              # 1278 изобр. → 400 эпох (оптимум)
+    real_augmented: 400             # ~3000 изобр. → 400 эпох
+    synthetic_full: 200             # ~5000 изобр. → 200 эпох (синтетика проще)
+    real_plus_synthetic_aug: 300    # ~3000 изобр. → 300 эпох
+    mixed_full: 200                 # ~9000 изобр. → 200 эпох (много данных)
+
+seeds: [123]  # [42, 123, 777] для стат. значимости
+
+statistics:
+  alpha: 0.05
+  correction_method: "holm"
+
+classes:
+  num_classes: 4
+  names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "synthetic_efficacy_experiment_v5"

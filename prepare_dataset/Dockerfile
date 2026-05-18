@@ -17,7 +17,7 @@ ENV PATH="/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir -U pip setuptools wheel
 
-# Основные пакеты
+# ★★★ ФИКСИРОВАННЫЕ СОВМЕСТИМЫЕ ВЕРСИИ ★★★
 RUN pip install --no-cache-dir \
     pandas \
     numpy \
@@ -29,7 +29,8 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     pyyaml==6.0.1 \
     Pillow \
-    albumentations==1.4.8 \
+    albucore==0.0.12 \
+    albumentations==1.4.0 \
     mlflow>=2.0.0
 
 # PyTorch (CPU-only, для подготовки данных GPU не нужен)

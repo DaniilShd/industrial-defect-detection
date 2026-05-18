@@ -8,8 +8,8 @@ experiment:
 
 # Фиксированные параметры обучения LT-DETR
 ltdetr:
-  fixed_epochs: 15
-  val_every_steps: 500  # 🔥 Валидация каждые 500 шагов
+  max_steps: 5500
+  val_every_steps: 1000  # 🔥 Валидация каждые 500 шагов
   lr: 0.0001
   batch_size: 8
   freeze_backbone: true
@@ -20,33 +20,27 @@ paths:
   real_train: "/app/data/processed/balanced_defect_patches_v2/train"
   real_val: "/app/data/processed/balanced_defect_patches_v2/val"
   real_test: "/app/data/processed/balanced_defect_patches_v2/test"
-  results_dir: "/app/data/results_v5/ablation"
+  results_dir: "/app/data/results_v2/ablation"
 
 # ============================================================
 # СЕТКА ПАРАМЕТРОВ ГЕНЕРАЦИИ
 # ============================================================
 grid:
   sd_defect_strength:
-    # - 0.15
+    - 0.15
     - 0.25
-    # - 0.35
 
   sd_background_strength:
     - 0.05
-    # - 0.12
+    - 0.12
 
   high_freq_alpha:
-    # - 0.2
-    # - 0.4
-    - 0.6
+    - 0.2
+    - 0.4
 
   variants:
-    - 1
     - 2
     - 3
-    - 4
-    - 5
-    - 6
 
   balance_strategy:
     - "proportional"
@@ -97,4 +91,4 @@ fixed_generation:
 # MLflow
 mlflow:
   tracking_uri: "file:///app/mlruns"
-  experiment_name: "ablation_synthetic_v5_variants"
+  experiment_name: "ablation_synthetic_v2"

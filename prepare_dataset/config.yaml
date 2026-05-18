@@ -3,8 +3,8 @@
 # ============================================================
 
 experiment:
-  name: "dataset_preparation"
-  description: "Подготовка датасетов для сравнения синтетики vs аугментации"
+  name: "synthetic_vs_augmentation"
+  description: "Сравнение синтетики vs аугментации для LTDETR"
   seed: 42
 
 # ============================================================
@@ -13,10 +13,10 @@ experiment:
 paths:
   # Входные данные
   real_dataset: "/app/data/processed/balanced_defect_patches_v2"  # train/val/test
-  best_synthetic: "data/results_v2/ablation/abl_014_r0/synthetic"  # только train
+  best_synthetic: "data/results_v5/ablation/abl_004_r0/synthetic"  # только train
   
   # Выходные данные
-  output_dir: "/app/data/experiment_v2"  # Все датасеты здесь
+  output_dir: "/app/data/experiment_v3"  # Все датасеты здесь
 
 # ============================================================
 # ПАРАМЕТРЫ ИЗОБРАЖЕНИЙ
@@ -38,7 +38,7 @@ yolo:
     3: "defect4"
 
 # ============================================================
-# АУГМЕНТАЦИЯ (единая для всех)
+# АУГМЕНТАЦИЯ (★★★ ИДЕНТИЧНА ДЛЯ РЕАЛЬНЫХ И СИНТЕТИЧЕСКИХ ДАННЫХ ★★★)
 # ============================================================
 augmentation:
   horizontal_flip: 0.5
@@ -75,66 +75,145 @@ augmentation:
 # ============================================================
 # КОНФИГУРАЦИИ ДАТАСЕТОВ ДЛЯ ЭКСПЕРИМЕНТА
 # ============================================================
-# N = количество изображений в real/train
-# Синтетика генерируется в том же количестве N
-# Все датасеты кроме baseline и mixed имеют размер 2N
+# R = количество реальных изображений в train (определяется автоматически)
+# S = количество синтетических изображений (определяется автоматически)
+# k = S/R (коэффициент масштабирования)
+# 
+# ★ ГЛАВНАЯ ГИПОТЕЗА: Синтетика даёт лучшие аугментации, 
+#   чем простая аугментация реальных данных
+#
+# ★ ВАЖНО: Параметры аугментации ИДЕНТИЧНЫ для всех датасетов!
 # ============================================================
 
 datasets:
-  # 1. Baseline — только реальные данные
+  # ==========================================
+  # 1. BASELINE — только реальные данные
+  # ==========================================
   real_baseline:
     train:
-      - source: "real/train"
+      - source: "real/train"                    # R
     val: "real/val"
     test: "real/test"
-    size: "N"
-    description: "Только реальные данные (нижняя граница)"
+    size: "R"
+    description: "Только реальные данные (нижняя граница качества)"
 
-  # 2. Реальные + аугментированные реальные
+  # ==========================================
+  # 2. РЕАЛЬНЫЕ + АУГМЕНТАЦИЯ РЕАЛЬНЫХ
+  # ==========================================
   real_augmented:
     train:
-      - source: "real/train"
-      - source: "real_augmented/train"
+      - source: "real/train"                    # R оригиналов
+      - source: "real_augmented/train"          # S копий реальных (каждое по S/R раз)
     val: "real/val"
     test: "real/test"
-    size: "2N"
-    description: "Реальные данные + их аугментации"
+    size: "R + S"
+    description: "Реальные + аугментация реальных (размер S для честного сравнения)"
 
-  # 3. Только синтетика + аугментированная синтетика
+  # ==========================================
+  # 3. ТОЛЬКО СИНТЕТИКА (оригиналы + аугментация)
+  # ==========================================
   synthetic_full:
     train:
-      - source: "synthetic/train"
-      - source: "synthetic_augmented/train"
+      - source: "synthetic/train"               # S оригиналов
+      - source: "synthetic_augmented/train"     # S аугментированных
     val: "real/val"
     test: "real/test"
-    size: "2N"
+    size: "2S"
     description: "Только синтетические данные (сырые + аугментированные)"
 
-  # 4. Реальные + аугментированная синтетика (КЛЮЧЕВОЕ СРАВНЕНИЕ)
+  # ==========================================
+  # 4. ★★★ КЛЮЧЕВОЕ СРАВНЕНИЕ ★★★
+  # ==========================================
   real_plus_synthetic_aug:
     train:
-      - source: "real/train"
-      - source: "synthetic_augmented/train"
+      - source: "real/train"                    # R оригиналов
+      - source: "synthetic_augmented/train"     # S аугментированной синтетики
     val: "real/val"
     test: "real/test"
-    size: "2N"
-    description: "Реальные данные + аугментированная синтетика (замена real_aug на synthetic_aug)"
+    size: "R + S"
+    description: "★★★ Реальные + аугментированная синтетика (тот же размер что и real_augmented) ★★★"
 
-  # 5. Полный микс (синергия)
+  # ==========================================
+  # 5. ПОЛНЫЙ МИКС (синергия всего)
+  # ==========================================
   mixed_full:
     train:
-      - source: "real/train"
-      - source: "real_augmented/train"
-      - source: "synthetic/train"
-      - source: "synthetic_augmented/train"
+      - source: "real/train"                    # R
+      - source: "real_augmented/train"          # S
+      - source: "synthetic/train"               # S
+      - source: "synthetic_augmented/train"     # S
     val: "real/val"
     test: "real/test"
-    size: "4N"
-    description: "Все данные вместе (поиск синергии)"
+    size: "R + 3S"
+    description: "Всё вместе — поиск синергии реальных и синтетических данных"
+
+  # ==========================================
+  # 6a. КОНТРОЛЬ РАЗМЕРА ДЛЯ MIXED_FULL
+  # ==========================================
+  real_augmented_massive:
+    train:
+      - source: "real/train"                    # R
+      - source: "real_augmented_massive/train"  # 3S копий (по 3k на каждое)
+    val: "real/val"
+    test: "real/test"
+    size: "R + 3S (тот же что и mixed_full)"
+    description: "Контроль размера для mixed_full: только реальные + агрессивная аугментация"
+
+  # ==========================================
+  # 6b. КОНТРОЛЬ РАЗМЕРА ДЛЯ SYNTHETIC_FULL
+  # ==========================================
+  real_augmented_3x:
+    train:
+      - source: "real/train"                    # R
+      - source: "real_augmented_3x/train"       # (2S-R) копий (по 2k-1 на каждое)
+    val: "real/val"
+    test: "real/test"
+    size: "2S (тот же что и synthetic_full)"
+    description: "Контроль размера для synthetic_full: реальные + умеренная аугментация"
+
+  # ==========================================
+  # 7. РЕАЛЬНЫЕ + ОРИГИНАЛЬНАЯ СИНТЕТИКА (без аугментации)
+  # ==========================================
+  real_plus_synthetic_original:
+    train:
+      - source: "real/train"                    # R
+      - source: "synthetic/train"               # S (без аугментации!)
+    val: "real/val"
+    test: "real/test"
+    size: "R + S"
+    description: "Реальные + оригинальная синтетика (проверка эффекта аугментации синтетики)"
+
+# ============================================================
+# СХЕМА СРАВНЕНИЙ ДЛЯ АНАЛИЗА:
+# ============================================================
+# 
+# ★★★ ТРОЙНОЕ СРАВНЕНИЕ (все одинакового размера R+S) ★★★
+#    real_augmented (R + aug_S реальных)
+#    real_plus_synthetic_original (R + S оригиналов)
+#    real_plus_synthetic_aug (R + aug(S))
+#
+#    Проверяемые гипотезы:
+#    1. Синтетика лучше аугментации реальных?
+#       real_plus_synthetic_aug vs real_augmented
+#    2. Аугментация синтетики даёт прирост?
+#       real_plus_synthetic_aug vs real_plus_synthetic_original
+#
+# ★ СИНТЕТИКА БЕЗ РЕАЛЬНЫХ ДАННЫХ
+#    synthetic_full (2S) vs real_augmented_3x (2S)
+#    → Может ли синтетика полностью заменить реальные данные?
+#
+# ★ ПРОВЕРКА СИНЕРГИИ
+#    mixed_full (R+3S) vs real_augmented_massive (R+3S)
+#    → Даёт ли синтетика уникальное разнообразие, недостижимое аугментацией?
+#
+# ★ БАЗОВАЯ ЛИНИЯ
+#    real_baseline (R) — минимальное качество
+#    synthetic_full (2S) — максимальный потенциал синтетики
+#    mixed_full (R+3S) — теоретический максимум
 
 # ============================================================
 # MLflow
 # ============================================================
 mlflow:
   tracking_uri: "file:///app/mlruns"
-  experiment_name: "dataset_preparation"
+  experiment_name: "prepare_dataset_v5"

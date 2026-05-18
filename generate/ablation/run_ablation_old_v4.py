@@ -55,25 +55,13 @@ def get_combinations(grid: dict) -> list:
     return combos
 
 
-def count_dataset_images(directory: Path) -> int:
-    """Подсчет количества изображений в директории."""
-    if not directory.exists():
-        return 0
-    return len([f for f in (directory / "images").glob("*") 
-                if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
-
-
 def setup_dataset_dir(run_dir: Path, real_train: Path, real_val: Path, 
-                      real_test: Path, synth_dir: Path) -> tuple[Path, int]:
-    """Объединяет реальные и синтетические данные в один датасет.
-    
-    Returns:
-        (data_yaml_path, total_train_images)
-    """
+                      real_test: Path, synth_dir: Path) -> Path:
+    """Объединяет реальные и синтетические данные в один датасет."""
     ds_dir = run_dir / "dataset"
     
     for split, sources in [
-        ('train', [synth_dir]), # ('train', [real_train, synth_dir]),
+        ('train', [real_train, synth_dir]),
         ('val', [real_val]),
         ('test', [real_test])
     ]:
@@ -116,10 +104,7 @@ def setup_dataset_dir(run_dir: Path, real_train: Path, real_val: Path,
             }
         }, f)
     
-    # Подсчитываем итоговое количество изображений
-    total_train_images = count_dataset_images(ds_dir / "train")
-    
-    return data_yaml, total_train_images
+    return data_yaml
 
 
 def main():
@@ -144,13 +129,6 @@ def main():
     mlflow.set_tracking_uri(cfg['mlflow']['tracking_uri'])
     mlflow.set_experiment(cfg['mlflow']['experiment_name'])
     
-    # Получаем фиксированное количество эпох
-    fixed_epochs = ltdetr_cfg.get('fixed_epochs')
-    if fixed_epochs is None:
-        raise ValueError("ltdetr.fixed_epochs must be set in config")
-    
-    logger.info(f"Using fixed epochs: {fixed_epochs}")
-    
     all_results = []
     
     for idx, run_params in enumerate(combos):
@@ -163,8 +141,7 @@ def main():
             # Логируем все параметры одним вызовом
             all_params = {
                 **run_params,
-                **{f"ltdetr_{k}": v for k, v in ltdetr_cfg.items() if k != 'fixed_epochs'},
-                'fixed_epochs': fixed_epochs,
+                **{f"ltdetr_{k}": v for k, v in ltdetr_cfg.items()}
             }
             mlflow.log_params(all_params)
             mlflow.set_tag("run_type", "ablation")
@@ -188,30 +165,29 @@ def main():
                 # Шаг 2/4: Подготовка датасета
                 # =============================================
                 logger.info("Step 2/4: Preparing dataset...")
-                data_yaml, num_train_images = setup_dataset_dir(
+                data_yaml = setup_dataset_dir(
                     run_dir, real_train, real_val, real_test, synth_dir
                 )
                 
-                # Вычисляем max_steps на основе фиксированных эпох
-                batch_size = ltdetr_cfg['batch_size']
-                steps_per_epoch = max(1, num_train_images // batch_size)
-                max_steps = steps_per_epoch * fixed_epochs
-                
-                num_val_images = count_dataset_images(run_dir / "dataset/val")
+                # Статистика датасета
+                num_train_images = len(list(
+                    (run_dir / "dataset/train/images").glob("*")
+                ))
+                num_val_images = len(list(
+                    (run_dir / "dataset/val/images").glob("*")
+                ))
+                effective_batch = ltdetr_cfg['batch_size']
+                steps_per_epoch = max(1, num_train_images / effective_batch)
+                epochs = ltdetr_cfg['max_steps'] / steps_per_epoch
                 
                 logger.info(f"Dataset: {num_train_images} train + "
                            f"{num_val_images} val images, "
-                           f"batch_size={batch_size}, "
-                           f"steps_per_epoch={steps_per_epoch}, "
-                           f"fixed_epochs={fixed_epochs}, "
-                           f"max_steps={max_steps}")
+                           f"~{epochs:.1f} epochs over {ltdetr_cfg['max_steps']} steps")
                 
                 mlflow.log_metrics({
                     "num_train_images": num_train_images,
                     "num_val_images": num_val_images,
-                    "effective_epochs": float(fixed_epochs),
-                    "computed_max_steps": max_steps,
-                    "steps_per_epoch": steps_per_epoch,
+                    "effective_epochs": round(epochs, 1),
                 })
                 
                 # =============================================
@@ -222,17 +198,13 @@ def main():
                 train_result = train_ltdetr(
                     data_yaml=data_yaml,
                     out_dir=ltdetr_dir,
-                    max_steps=max_steps,  # Используем вычисленный max_steps
+                    max_steps=ltdetr_cfg['max_steps'],
                     val_every_steps=ltdetr_cfg.get('val_every_steps', 500),
                     lr=ltdetr_cfg['lr'],
                     batch_size=ltdetr_cfg['batch_size'],
                     freeze_backbone=ltdetr_cfg.get('freeze_backbone', False),
                     seed=ltdetr_cfg.get('seed', 42),
                 )
-                
-                # Добавляем информацию о эпохах в результат
-                train_result['fixed_epochs'] = fixed_epochs
-                train_result['computed_max_steps'] = max_steps
                 
                 # Логируем артефакты обучения
                 train_log = ltdetr_dir / "train.log"
@@ -288,8 +260,6 @@ def main():
                 
                 # Добавляем мета-информацию
                 metrics['training_time_h'] = train_result.get('training_time_hours', 0)
-                metrics['computed_max_steps'] = max_steps
-                metrics['effective_epochs'] = fixed_epochs
                 
                 # Логируем все метрики в MLflow
                 mlflow.log_metrics(metrics)
@@ -316,15 +286,12 @@ def main():
                     'Recall': 0.0,
                     'F1': 0.0,
                     'training_time_h': 0,
-                    'computed_max_steps': 0,
-                    'effective_epochs': fixed_epochs,
                     'status': 'failed'
                 })
             
             finally:
                 # Очистка
                 torch.cuda.empty_cache()
-                # Опционально: раскомментировать если нужно освобождать место
                 # for temp_dir in ['dataset', 'synthetic', 'ltdetr']:
                 #     temp_path = run_dir / temp_dir
                 #     if temp_path.exists():
@@ -361,7 +328,6 @@ def main():
                 logger.info(f"    high_freq_alpha:    {best.get('high_freq_alpha', '?')}")
                 logger.info(f"    variants:           {best.get('variants', '?')}")
                 logger.info(f"    balance_strategy:   {best.get('balance_strategy', '?')}")
-                logger.info(f"  Effective epochs: {best.get('effective_epochs', '?')}")
                 logger.info(f"  Training time: {best.get('training_time_h', 0):.2f}h")
                 logger.info(f"{'='*60}")
                 

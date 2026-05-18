@@ -8,23 +8,17 @@ def get_metal_augmentation(params: dict) -> A.Compose:
     """
     Аугментации для металлического проката.
     Все преобразования совместимы с YOLO-разметкой (bbox_params).
-    
-    Виды аугментаций:
-    - HorizontalFlip: прокат симметричен, дефекты могут быть с любой стороны
-    - BrightnessContrast: разное освещение в цехе
-    - HueSaturationValue: оттенки металла разных партий
-    - Affine: лёгкие геометрические искажения (вибрация, скорость проката)
-    - GaussNoise: шум матрицы камеры
-    - MotionBlur: смаз от движения
-    
-    Args:
-        params: словарь с параметрами аугментации
     """
     bc = params.get('brightness_contrast', {})
     hs = params.get('hue_saturation', {})
     af = params.get('affine', {})
     gn = params.get('gauss_noise', {})
     mb = params.get('motion_blur', {})
+    
+    # ★ Для GaussNoise в albumentations 1.4+: std_range должен быть 0..1
+    # Преобразуем старые значения 5-15 в диапазон 0.02-0.06 (5/255, 15/255)
+    noise_min = gn.get('var_min', 5.0) / 255.0
+    noise_max = gn.get('var_max', 15.0) / 255.0
     
     return A.Compose([
         A.HorizontalFlip(p=params.get('horizontal_flip', 0.5)),
@@ -51,7 +45,7 @@ def get_metal_augmentation(params: dict) -> A.Compose:
         ),
         
         A.GaussNoise(
-            var_limit=(gn.get('var_min', 5.0), gn.get('var_max', 15.0)),
+            std_range=(noise_min, noise_max),
             p=gn.get('p', 0.2)
         ),
         
@@ -61,8 +55,8 @@ def get_metal_augmentation(params: dict) -> A.Compose:
         ),
         
     ], bbox_params=A.BboxParams(
-        format='yolo',              # YOLO формат: [x_center, y_center, width, height] (нормализованные)
+        format='yolo',
         label_fields=['class_labels'],
-        min_visibility=0.7,         # Минимальная видимость bbox после аугментации
-        min_area=25                 # Минимальная площадь bbox в пикселях
+        min_visibility=0.7,
+        min_area=25
     ))

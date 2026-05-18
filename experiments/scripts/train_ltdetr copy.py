@@ -75,42 +75,6 @@ def _find_model_path(out_dir: Path) -> Path:
     raise FileNotFoundError(f"Модель не найдена в {out_dir}")
 
 
-def _count_dataset_images(data_yaml_path: Path) -> int:
-    """Подсчет количества тренировочных изображений в датасете."""
-    with open(data_yaml_path) as f:
-        data_config = yaml.safe_load(f)
-    
-    # Определяем путь к тренировочным изображениям
-    train_path = data_config.get('train')
-    if isinstance(train_path, str):
-        train_path = Path(train_path)
-        if not train_path.is_absolute():
-            train_path = Path(data_config['path']) / train_path
-    else:
-        train_path = Path(data_config['path']) / 'train' / 'images'
-    
-    # Если train_path указывает на директорию с изображениями
-    if train_path.exists():
-        if train_path.name == 'images':
-            images_dir = train_path
-        elif (train_path / 'images').exists():
-            images_dir = train_path / 'images'
-        else:
-            images_dir = train_path
-    else:
-        # Пробуем найти через path
-        base_path = Path(data_config['path'])
-        images_dir = base_path / 'train' / 'images'
-    
-    if not images_dir.exists():
-        logger.warning(f"Директория с изображениями не найдена: {images_dir}")
-        return 0
-    
-    n_images = len([f for f in images_dir.glob("*") 
-                    if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
-    return n_images
-
-
 def train_ltdetr(
     config: dict,
     run_cfg: dict,
@@ -118,7 +82,7 @@ def train_ltdetr(
     extra_model_args: dict = None,
 ) -> dict:
     """
-    Обучение LT-DETR с автоматическим расчетом max_steps на основе fixed_epochs.
+    Обучение LT-DETR.
     """
     from lightly_train import train_object_detection, load_model
     from experiments.scripts.evaluate import evaluate_model
@@ -127,30 +91,8 @@ def train_ltdetr(
     if not data_yaml_path.exists():
         raise FileNotFoundError(f"data.yaml не найден: {data_yaml_path}")
 
-    # 🔥 ВЫЧИСЛЯЕМ max_steps НА ОСНОВЕ РЕАЛЬНОГО РАЗМЕРА ДАТАСЕТА
-    fixed_epochs = config['training'].get('fixed_epochs')
-    if fixed_epochs is None:
-        raise ValueError("training.fixed_epochs must be set in config")
-    
-    n_images = _count_dataset_images(data_yaml_path)
-    if n_images == 0:
-        raise ValueError(f"Не найдено изображений в датасете: {data_yaml_path}")
-    
-    batch_size = config['training']['batch_size']
-    grad_accum = config['training'].get('gradient_accumulation_steps', 1)
-    effective_batch = batch_size * grad_accum
-    
-    steps_per_epoch = max(1, n_images // effective_batch)
-    max_steps = steps_per_epoch * fixed_epochs
-    
-    logger.info(f"📊 Расчет max_steps для {run_cfg['dataset_name']}:")
-    logger.info(f"   Изображений: {n_images}")
-    logger.info(f"   Batch: {batch_size} × {grad_accum} = {effective_batch}")
-    logger.info(f"   Шагов/эпоху: {steps_per_epoch}")
-    logger.info(f"   Эпох: {fixed_epochs}")
-    logger.info(f"   → max_steps: {max_steps}")
-
     model_args = {"lr": config['training'].get('lr', 1e-4)}
+    # Всегда добавляем ключ backbone_freeze (API требует именно так)
     model_args["backbone_freeze"] = run_cfg.get('freeze_backbone', False)
 
     if extra_model_args:
@@ -158,16 +100,24 @@ def train_ltdetr(
 
     precision = "bf16-mixed" if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else "16-mixed"
 
+    # ★ ИСПРАВЛЕНИЕ 1: Адаптивные шаги из словаря
+    max_steps = config['training']['max_steps']
+    if isinstance(max_steps, dict):
+        max_steps = max_steps.get(run_cfg['dataset_name'], 7000)
+    
+    # ★ ИСПРАВЛЕНИЕ 2: gradient_accumulation_steps из конфига
+    grad_accum = config['training'].get('gradient_accumulation_steps', 1)
+
     train_params = {
         "out": str(models_dir),
         "model": config['training']['model'],
         "data": str(data_yaml_path),
         "seed": run_cfg['seed'],
         "precision": precision,
-        "steps": max_steps,  # 🔥 вычисленное значение
+        "steps": max_steps,  # ← теперь адаптивные
         "overwrite": True,
-        "batch_size": batch_size,
-        "gradient_accumulation_steps": grad_accum,
+        "batch_size": config['training']['batch_size'],
+        "gradient_accumulation_steps": grad_accum,  # ← из конфига
         "model_args": model_args,
         "logger_args": {
             "val_every_num_steps": config['training'].get('val_every_steps', 500),
@@ -178,8 +128,19 @@ def train_ltdetr(
         },
     }
 
+    # Логируем информацию о датасете и эпохах
+    with open(data_yaml_path) as f:
+        data_config = yaml.safe_load(f)
+    
+    train_path = Path(data_config['path']) / 'train'
+    n_images = len(list((train_path / 'images').glob('*')))
+    effective_batch = config['training']['batch_size'] * grad_accum
+    steps_per_epoch = n_images / effective_batch
+    epochs = max_steps / steps_per_epoch
+    
+    logger.info(f"Датасет: {n_images} img | Батч: {config['training']['batch_size']}×{grad_accum}={effective_batch}")
+    logger.info(f"Шагов: {max_steps} | ~{epochs:.1f} эпох | Валидация каждые {train_params['logger_args']['val_every_num_steps']} шагов")
     logger.info(f"Обучение: {run_cfg['run_name']}, backbone_freeze={model_args['backbone_freeze']}")
-    logger.info(f"Шагов: {max_steps} | Эпох: {fixed_epochs} | Валидация: {train_params['logger_args']['val_every_num_steps']} шагов")
     
     start = time.time()
     train_object_detection(**train_params)
@@ -190,9 +151,6 @@ def train_ltdetr(
     model = load_model(str(model_path))
 
     # Определяем тестовый путь
-    with open(data_yaml_path) as f:
-        data_config = yaml.safe_load(f)
-    
     test_path = data_config.get('test', data_config.get('val'))
     if isinstance(test_path, str):
         test_path = Path(test_path)
@@ -208,12 +166,13 @@ def train_ltdetr(
 
     logger.info(f"Оценка на тесте: images={test_images}, labels={test_labels}")
 
+    # ★ ИСПРАВЛЕНИЕ 3: Правильный порог для оценки
     eval_conf = config['training'].get('eval_conf_threshold', 0.001)
     
     metrics = evaluate_model(
         model, test_images=test_images, test_labels=test_labels,
         num_classes=config['classes']['num_classes'],
-        conf_threshold=eval_conf,
+        conf_threshold=eval_conf,  # ← 0.001 для честного сравнения
     )
 
     result = {
@@ -229,8 +188,7 @@ def train_ltdetr(
         'training_time_hours': round(training_time, 3),
         'model_path': str(model_path),
         'status': 'completed',
-        'n_epochs': fixed_epochs,  # 🔥 фиксированные эпохи
-        'n_steps': max_steps,      # 🔥 вычисленные шаги
+        'n_epochs': round(epochs, 1),  # ← для отчётности
         'n_images': n_images,
     }
 
@@ -238,8 +196,7 @@ def train_ltdetr(
         if k.startswith('cls'):
             result[f'test_{k}'] = v
 
-    logger.info(f"✅ {run_cfg['run_name']}: mAP50={result['test_map50']:.4f}, эпох={fixed_epochs}, шагов={max_steps}")
-    
+    logger.info(f"mAP@50: test={result['test_map50']:.4f}, val={result['val_map50']:.4f}")
     with open(models_dir / "result.json", 'w') as f:
         json.dump(result, f, indent=2)
 

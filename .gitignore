@@ -30,6 +30,9 @@ distillation/backbone_distillation/pretrain
 distillation/backbone_distillation/reports_v1
 distillation/report
 mlruns
+distillation/backbone_distillation/reports
+distillation/backbone_distillation/detectors_v1
+distillation/backbone_distillation/pretrain_v1
 
 # Python
 __pycache__/
