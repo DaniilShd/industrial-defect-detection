@@ -345,8 +345,47 @@ class FasterRCNNTrainer:
                     logger.warning("  ⚠️ No weights mapped! Debug info:")
                     logger.warning(f"     First 5 keys in weights: {list(weights.keys())[:5]}")
                     logger.warning(f"     First 5 keys in body_state: {list(body_state.keys())[:5]}")
+        elif init_type == 'multilayer_distilled':
+            if self.pretrained_backbone_path and Path(self.pretrained_backbone_path).exists():
+                logger.info(f"  Loading multi-layer distilled backbone weights...")
+                checkpoint = torch.load(self.pretrained_backbone_path, map_location='cpu', weights_only=False)
+                
+                if 'student_state_dict' in checkpoint:
+                    weights = checkpoint['student_state_dict']
+                elif 'state_dict' in checkpoint:
+                    weights = checkpoint['state_dict']
+                elif 'model_state_dict' in checkpoint:
+                    weights = checkpoint['model_state_dict']
+                else:
+                    weights = checkpoint
+                
+                if hasattr(model.backbone, 'body'):
+                    body_state = model.backbone.body.state_dict()
+                    logger.info("  Loading into backbone.body")
+                else:
+                    body_state = model.backbone.state_dict()
+                    logger.info("  Loading into backbone directly")
+                
+                mapped = 0
+                for k, v in weights.items():
+                    clean_k = k
+                    for prefix in ['backbone.', 'model.', 'student_model.', 'module.', '_backbone.', 'body.']:
+                        if clean_k.startswith(prefix):
+                            clean_k = clean_k[len(prefix):]
+                            break
+                    
+                    if clean_k in body_state and v.shape == body_state[clean_k].shape:
+                        body_state[clean_k] = v
+                        mapped += 1
+                
+                if hasattr(model.backbone, 'body'):
+                    model.backbone.body.load_state_dict(body_state, strict=False)
+                else:
+                    model.backbone.load_state_dict(body_state, strict=False)
+                
+                logger.info(f"  Mapped {mapped} weights to backbone.body")
             else:
-                logger.warning("  No distilled weights found, using random init!")
+                logger.warning("  No multi-layer distilled weights found, using random init!")
         else:
             logger.info("  Using random initialization")
         
@@ -523,11 +562,11 @@ def is_model_already_trained(student_name: str, config: dict) -> bool:
 
 
 def main():
-    config_path = Path(__file__).parent / "config_pretrain_comparison.yaml"
+    config_path = Path(__file__).parent / "../config_multilayer_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
-    cache_file = Path(config['paths']['pretrain_output']) / "pretrained_model_path.txt"
+    cache_file = Path(config["paths"]["pretrain_output"]) / "multilayer_model_path.txt"
     pretrained_path = None
     if cache_file.exists():
         pretrained_path = cache_file.read_text().strip()

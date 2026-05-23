@@ -1,0 +1,99 @@
+experiment:
+  name: "multilayer_distillation_comparison"
+  description: "Multi-Layer Feature Distillation от ViT учителя к ResNet18 ученику для детекции дефектов"
+  hypothesis: "Многоуровневая дистилляция признаков превосходит стандартную дистилляцию и ImageNet-предобучение для задачи детекции поверхностных дефектов"
+
+teacher:
+  model: "dinov3/vits16-ltdetr-coco"
+  description: "DINOv3 ViT-S/16 LTDETR дообученный на дефектах"
+  weights: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
+
+multilayer_distillation:
+  # Данные для дистилляции
+  unlabeled_data: "/app/data/experiment_v3/datasets/mixed_full/train/images"
+  
+  # Архитектура
+  teacher_layers: [4, 8, 12, 16, 20, 24]  # Блоки ViT учителя
+  student_layers: ['layer1', 'layer2', 'layer3', 'layer4']  # Стадии ResNet18
+  
+  # Маппинг слоёв учитель -> ученик
+  layer_mapping:
+    4: 'layer1'     # Ранние текстурные признаки
+    8: 'layer1'     # Границы и контуры
+    12: 'layer2'    # Средние признаки (части дефектов)
+    16: 'layer3'    # Высокоуровневые признаки (типы дефектов)
+    24: 'layer4'    # Семантические признаки (глобальный контекст)
+  
+  # Гиперпараметры обучения
+  epochs: 1
+  batch_size: 64
+  image_size: [224, 224]
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  
+  # Веса для разных уровней признаков
+  layer_weights:
+    low_level: 0.2      # layer1 (текстуры, границы)
+    mid_level: 0.3      # layer2, layer3 (формы, части)
+    high_level: 0.5     # layer4 (семантика)
+  
+  # Параметры дистилляции
+  temperature: 4.0
+  
+  # Адаптеры для согласования размерностей ViT -> CNN
+  use_adapters: true
+  adapter_hidden_dim: 512
+  
+  # Дополнительные лоссы
+  use_attention_loss: true
+  attention_weight: 0.3
+  use_relation_loss: true
+  relation_weight: 0.2
+  use_cosine_loss: true
+  cosine_weight: 0.5
+
+students:
+  faster_rcnn_r18_scratch:
+    backbone: "resnet18"
+    epochs: 1
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "scratch"
+    patience: 15
+    description: "Случайная инициализация - baseline"
+    
+  faster_rcnn_r18_imagenet:
+    backbone: "resnet18"
+    epochs: 1
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "imagenet_pretrained"
+    patience: 15
+    description: "ImageNet предобучение - стандартный подход"
+    
+  faster_rcnn_r18_multilayer_distilled:
+    backbone: "resnet18"
+    epochs: 1
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "multilayer_distilled"
+    patience: 15
+    description: "Multi-Layer Feature Distillation от LTDETR - предложенный метод"
+
+detection:
+  data_path: "/app/data/experiment_v3/datasets/mixed_full"
+  num_classes: 4
+  img_size: [640, 640]
+  class_names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+paths:
+  pretrain_output: "/app/multilayer_distillation/pretrain"
+  detection_output: "/app/multilayer_distillation/detectors"
+  results_dir: "/app/multilayer_distillation/reports"

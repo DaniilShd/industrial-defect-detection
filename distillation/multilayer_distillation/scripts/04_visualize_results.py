@@ -52,7 +52,8 @@ class ResultsVisualizer:
             'teacher': '#E74C3C',      # Красный
             'scratch': '#95A5A6',      # Серый
             'imagenet_pretrained': '#3498DB',  # Синий
-            'lightly_pretrained': '#2ECC71',   # Зелёный
+            'lightly_pretrained': '#2ECC71',
+            'multilayer_distilled': '#F39C12',   # Зелёный
         }
         
         # Названия для легенд
@@ -551,7 +552,7 @@ def load_training_histories(config: dict) -> Dict[str, List[Dict]]:
 def main():
     """Создаёт все визуализации."""
     
-    config_path = Path(__file__).parent / "config_pretrain_comparison.yaml"
+    config_path = Path(__file__).parent / "../config_multilayer_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     

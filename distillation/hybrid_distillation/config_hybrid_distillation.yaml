@@ -1,0 +1,98 @@
+experiment:
+  name: "hybrid_distillation_comparison"
+  description: "Гибридная дистилляция: Multi-Layer + Attention Transfer + Relation-Based"
+  hypothesis: "Гибридная дистилляция (features + attention + relations) превосходит стандартную и multi-layer дистилляцию для детекции дефектов"
+
+teacher:
+  model: "dinov3/vits16-ltdetr-coco"
+  description: "DINOv3 ViT-S/16 LTDETR дообученный на дефектах"
+  weights: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
+
+hybrid_distillation:
+  unlabeled_data: "/app/data/experiment_v3/datasets/mixed_full/train/images"
+  
+  # Архитектура
+  teacher_layers: [4, 8, 12, 16, 20, 24]
+  student_layers: ['layer1', 'layer2', 'layer3', 'layer4']
+  
+  # Маппинг слоёв
+  layer_mapping:
+    4: 'layer1'
+    8: 'layer1'
+    12: 'layer2'
+    16: 'layer3'
+    24: 'layer4'
+  
+  # Гиперпараметры
+  epochs: 200
+  batch_size: 64
+  image_size: [224, 224]
+  learning_rate: 0.0005      # Ниже для стабильности
+  weight_decay: 0.0001
+  
+  # Веса компонент гибридного лосса
+  feature_weight: 0.4        # Multi-Layer Feature Matching
+  attention_weight: 0.3      # Attention Transfer
+  relation_weight: 0.2       # Relation-Based
+  cosine_weight: 0.1         # Cosine Similarity
+  
+  # Веса уровней
+  layer_weights:
+    low_level: 0.25
+    mid_level: 0.35
+    high_level: 0.40
+  
+  # Параметры дистилляции
+  temperature: 3.0
+  
+  # Адаптеры
+  use_adapters: true
+  adapter_hidden_dim: 512
+  
+  # Нормализация признаков (ВАЖНО для стабильности!)
+  normalize_features: true
+  use_smooth_l1: true        # Smooth L1 вместо MSE
+
+students:
+  faster_rcnn_r18_scratch:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "scratch"
+    patience: 15
+    
+  faster_rcnn_r18_imagenet:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "imagenet_pretrained"
+    patience: 15
+    
+  faster_rcnn_r18_hybrid_distilled:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "hybrid_distilled"
+    patience: 15
+    description: "Гибридная дистилляция (features + attention + relations)"
+
+detection:
+  data_path: "/app/data/experiment_v3/datasets/mixed_full"
+  num_classes: 4
+  img_size: [640, 640]
+  class_names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+paths:
+  pretrain_output: "/app/distillation/hybrid_distillation/pretrain"
+  detection_output: "/app/distillation/hybrid_distillation/detectors"
+  results_dir: "/app/distillation/hybrid_distillation/reports"

@@ -4,7 +4,7 @@ import lightly_train
 from pathlib import Path
 
 # Путь к вашему чекпоинту детектора
-detector_path = "/app/data/experiment_v2/models/exp3_ssl/mixed_full_ssl_seed777/exported_models/exported_best.pt"
+detector_path = "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
 
 # Загружаем детектор через load_model
 detector = lightly_train.load_model(detector_path)

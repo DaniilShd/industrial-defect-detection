@@ -182,6 +182,7 @@ services:
       - ./distillation:/app/distillation
       - ./distillation/scripts:/app/scripts
       - ./distillation/backbone_distillation:/app/backbone_distillation
+      - ./distillation/multilayer_distillation:/app/multilayer_distillation
       - ./distillation/config_distillation.yaml:/app/config_distillation.yaml:ro
       - ./mlruns:/app/mlruns
       - ./mlflow.db:/app/mlflow.db

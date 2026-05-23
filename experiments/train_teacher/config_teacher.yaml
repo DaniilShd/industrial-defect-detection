@@ -1,0 +1,51 @@
+experiment:
+  name: "teacher_training"
+  description: "Обучение двух учителей для дистилляции"
+
+paths:
+  experiment_data: "/app/data/experiment_v3/datasets"
+  models_dir: "/app/data/experiment_v3/models/teacher"
+  report_dir: "/app/data/experiment_v3/experiments/train_teacher/report"
+  results_dir: "/app/data/experiment_v3/reports"
+
+# ★★★ Два учителя с разными стратегиями ★★★
+teacher_mixed_full_ssl:
+  dataset: "mixed_full"
+  data_yaml: "mixed_full/data.yaml"
+  description: "Лучший датасет, SSL-претрейн бэкбона"
+  ssl:
+    epochs: 600
+    batch_size: 128
+    method: "distillation"
+    teacher: "dinov3/vitb16"
+
+teacher_real_augmented_finetune:
+  dataset: "real_augmented"
+  data_yaml: "real_augmented/data.yaml"
+  description: "Базовый датасет, полное обучение без SSL"
+
+# ★★★ Настройки обучения (для train_ltdetr) ★★★
+training:
+  model: "dinov3/vits16-ltdetr-coco"
+  fixed_epochs: 40
+  batch_size: 8
+  gradient_accumulation_steps: 1
+  precision: "bf16-mixed"
+  lr: 0.0001
+  val_every_steps: 500
+  eval_conf_threshold: 0.001
+  conf_threshold: 0.25
+
+seeds: [42]
+
+classes:
+  num_classes: 4
+  names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+mlflow:
+  tracking_uri: "file:///app/mlruns"
+  experiment_name: "teacher_training_v3"

@@ -498,7 +498,7 @@ class ModelEvaluator:
 def main():
     """Оценивает все модели."""
     
-    config_path = Path(__file__).parent / "config_pretrain_comparison.yaml"
+    config_path = Path(__file__).parent / "../config_multilayer_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
