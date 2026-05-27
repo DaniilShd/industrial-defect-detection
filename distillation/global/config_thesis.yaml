@@ -1,0 +1,38 @@
+paths:
+  experiments_output: /app/distillation/global/thesis_experiments
+  ssl_output: /app/distillation/global/thesis_experiments/ssl_pretraining
+
+data:
+  path: /app/data/experiment_v3/datasets/mixed_full
+  num_classes: 4
+  img_size: [640, 640]
+
+ssl_pretraining:
+  model: resnet18
+  method: dino
+  teacher: dinov3_vit_small
+  epochs: 100
+  batch_size: 256
+
+teacher:
+  model: ltdetr_dinov3
+  weights: /app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt
+
+gkd:
+  num_prototypes: 10
+  lambda_reg: 10.0
+  prototype_update_epochs: 1
+  prototype_accumulation_batches: 10
+  alpha_global: 0.1
+  alpha_local: 0.1
+  kd_warmup_epochs: 5
+
+training:
+  epochs: 50
+  batch_size: 8
+  lr: 0.0001
+  weight_decay: 0.0001
+  patience: 15
+
+seed: 42
+device: cuda

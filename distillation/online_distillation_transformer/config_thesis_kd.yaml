@@ -1,0 +1,25 @@
+# config_kd.yaml
+# Правильный Knowledge Distillation для DETR
+
+seed: 42
+
+teacher:
+  weights: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
+
+student:
+  model: "dinov3/vitt16-ltdetr-coco"
+
+training:
+  epochs: 20
+
+data:
+  path: "/app/data/experiment_v3/datasets/mixed_full"
+  num_classes: 4
+
+kd_weights:
+  logits: 1.0    # KL divergence weight
+  boxes: 0.5     # L1 + GIoU weight
+  feat: 0.3      # Feature KD weight
+
+paths:
+  output: "/app/online_distillation_transformer/thesis_experiments/results"

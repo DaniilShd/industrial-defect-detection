@@ -4,8 +4,8 @@ experiment:
 
 paths:
   experiment_data: "/app/data/experiment_v2/datasets/real_plus_synthetic_aug"
-  models_dir: "/app/data/experiment_v2/models/teacher"
-  report_dir: "/app/data/experiment_v2/experiments/train_teacher/report"
+  models_dir: "/app/data/experiment_v3/models/teacher"
+  report_dir: "/app/data/experiment_v3/experiments/train_teacher/report"
 
 # Датасет для обучения LTDETR
 dataset:
@@ -37,7 +37,7 @@ training:
 # SSL настройки (только если strategy.name == "ssl")
 ssl:
   enabled: false                    # Автоматически включится при strategy.name == "ssl"
-  epochs: 200
+  epochs: 400
   batch_size: 64
   method: "distillation"
   teacher: "dinov3/vitb16"

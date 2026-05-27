@@ -1,0 +1,63 @@
+experiment:
+  name: "resnet18_distillation_from_ltdetr"
+  description: "Дистилляция backbone ResNet18 от LTDETR-дефектоскописта через LightlyTrain"
+
+teacher:
+  base_model: "dinov3/vits16"
+  teacher_weights: "teacher_clean_state_dict.pt"  # для дистилляции
+  detector_path: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"  # для оценки
+
+pretrain:
+  method: "distillationv3"  # distillationv3 — оптимален для DINOv3 учителя + задачи детекции
+  unlabeled_data: "/app/data/experiment_v3/datasets/mixed_full/train/images"
+  epochs: 200
+  batch_size: 128
+  image_size: [224, 224]
+
+detection:
+  data_path: "/app/data/experiment_v3/datasets/mixed_full"
+  num_classes: 4
+  img_size: [640, 640]
+  class_names:
+    0: "defect_1"
+    1: "defect_2"
+    2: "defect_3"
+    3: "defect_4"
+
+students:
+  faster_rcnn_r18_scratch:
+    type: "scratch"
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.0001
+    weight_decay: 0.0005
+    patience: 15
+
+  faster_rcnn_r18_imagenet:
+    type: "imagenet_pretrained"
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.0001
+    weight_decay: 0.0005
+    patience: 15
+
+  faster_rcnn_r18_distilled:
+    type: "lightly_pretrained"
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.0001
+    weight_decay: 0.0005
+    patience: 15
+
+paths:
+  pretrain_output: "results/pretrain"
+  detection_output: "results/detection"
+  results_dir: "results/results"
+
+fps:
+  img_size: [640, 640]
+  warmup: 30
+  iterations: 100

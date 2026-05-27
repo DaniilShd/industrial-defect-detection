@@ -34,6 +34,13 @@ distillation/backbone_distillation/reports
 distillation/backbone_distillation/detectors_v1
 distillation/backbone_distillation/pretrain_v1
 distillation/backbone_distillation/reports_2
+distillation/online_distillation/detectors
+distillation/modern_distillation/detectors
+distillation/multilayer_distillation/detectors
+**/pretrain/
+**/reports/
+**/results/
+**/experiments_1/
 
 # Python
 __pycache__/

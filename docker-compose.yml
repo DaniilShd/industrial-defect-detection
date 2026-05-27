@@ -183,6 +183,12 @@ services:
       - ./distillation/scripts:/app/scripts
       - ./distillation/backbone_distillation:/app/backbone_distillation
       - ./distillation/multilayer_distillation:/app/multilayer_distillation
+      - ./distillation/modern_distillation:/app/modern_distillation
+      - ./distillation/online_distillation:/app/online_distillation
+      - ./distillation/global:/app/global
+      - ./distillation/last_test:/app/last_test 
+      - ./distillation/backbone_distillation_v2:/app/backbone_distillation_v2 
+      - ./distillation/online_distillation_transformer:/app/online_distillation_transformer
       - ./distillation/config_distillation.yaml:/app/config_distillation.yaml:ro
       - ./mlruns:/app/mlruns
       - ./mlflow.db:/app/mlflow.db

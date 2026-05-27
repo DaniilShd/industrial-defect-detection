@@ -498,7 +498,7 @@ class ModelEvaluator:
 def main():
     """Оценивает все модели."""
     
-    config_path = Path(__file__).parent / "../config_multilayer_distillation.yaml"
+    config_path = Path(__file__).parent / "../config_modern_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
@@ -651,6 +651,7 @@ def main():
         # 5. Выводим сравнение с учителем
         teacher_result = next((r for r in all_results if r.get('type') == 'teacher'), None)
         distilled_result = next((r for r in all_results if r.get('type') == 'lightly_pretrained'), None)
+        modern_result = next((r for r in all_results if r.get('type') == 'modern_distilled'), None)
         
         if teacher_result and distilled_result:
             teacher_map = teacher_result.get('mAP_50', 0)

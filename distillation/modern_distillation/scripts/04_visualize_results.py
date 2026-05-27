@@ -53,8 +53,8 @@ class ResultsVisualizer:
             'scratch': '#95A5A6',      # Серый
             'imagenet_pretrained': '#3498DB',  # Синий
             'lightly_pretrained': '#2ECC71',
-            'multilayer_distilled': '#F39C12',
-            'hybrid_distilled': '#9B59B6',   # Зелёный
+            'modern_distilled': '#E67E22',
+            'modern_distilled': '#F39C12',   # Зелёный
         }
         
         # Названия для легенд
@@ -63,6 +63,7 @@ class ResultsVisualizer:
             'faster_rcnn_r18_scratch': 'Случайная инициализация',
             'faster_rcnn_r18_imagenet': 'ImageNet предобучение',
             'faster_rcnn_r18_distilled': 'Дистилляция (предложенный)',
+            'faster_rcnn_r18_modern_distilled': 'Современная (2025)',
         }
         
         # Настройка стиля
@@ -137,7 +138,6 @@ class ResultsVisualizer:
         legend_elements = [
             Patch(facecolor=self.colors['teacher'], label='Учитель (LTDETR)'),
             Patch(facecolor=self.colors['lightly_pretrained'], label='Дистилляция (предложенный)'),
-            Patch(facecolor=self.colors['hybrid_distilled'], label='Гибридная дистилляция'),
             Patch(facecolor=self.colors['imagenet_pretrained'], label='ImageNet'),
             Patch(facecolor=self.colors['scratch'], label='Случайная иниц.'),
         ]
@@ -554,7 +554,7 @@ def load_training_histories(config: dict) -> Dict[str, List[Dict]]:
 def main():
     """Создаёт все визуализации."""
     
-    config_path = Path(__file__).parent / "../config_hybrid_distillation.yaml"
+    config_path = Path(__file__).parent / "../config_modern_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     

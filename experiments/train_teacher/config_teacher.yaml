@@ -49,3 +49,7 @@ classes:
 mlflow:
   tracking_uri: "file:///app/mlruns"
   experiment_name: "teacher_training_v3"
+
+
+#   python visualize_predictions.py --config config_teacher.yaml
+# python create_comparison_grid.py --config config_teacher.yaml --teacher teacher_mixed_full_ssl

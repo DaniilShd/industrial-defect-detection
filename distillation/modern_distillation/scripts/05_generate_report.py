@@ -398,9 +398,7 @@ class LaTeXReportGenerator:
             'scratch': 'Случайная инициализация',
             'imagenet_pretrained': 'ImageNet предобучение',
             'lightly_pretrained': 'Дистилляция (предложенный)',
-            'hybrid_distilled': 'Гибридная дистилляция',
-            'multilayer_distilled': 'Multi-Layer Дистилляция',
-            'multilayer_distilled': 'Multi-Layer Дистилляция',
+            'modern_distilled': 'Multi-Layer Дистилляция',
         }
         return labels.get(model_type, model_type)
     
@@ -411,9 +409,7 @@ class LaTeXReportGenerator:
             'scratch': 'Scratch',
             'imagenet_pretrained': 'ImageNet',
             'lightly_pretrained': 'Дистилл.',
-            'hybrid_distilled': 'Гибрид',
-            'multilayer_distilled': 'Multi-Layer',
-            'multilayer_distilled': 'Multi-Layer',
+            'modern_distilled': 'Multi-Layer',
         }
         return labels.get(model_type, model_type)
     
@@ -476,7 +472,7 @@ class LaTeXReportGenerator:
 def main():
     """Генерирует LaTeX отчёт."""
     
-    config_path = Path(__file__).parent / "../config_hybrid_distillation.yaml"
+    config_path = Path(__file__).parent / "../config_modern_distillation.yaml"
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     

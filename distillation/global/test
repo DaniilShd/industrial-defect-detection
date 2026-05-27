@@ -1,0 +1,24 @@
+# 1. Baseline (ImageNet ResNet-18)
+python scripts/thesis_experiments.py \
+    --config config_thesis.yaml \
+    --experiments baseline
+
+# 2. SSL Distilled (DINOv3 → ResNet-18 веса)
+python scripts/thesis_experiments.py \
+    --config config_thesis.yaml \
+    --experiments ssl_distilled
+
+# 3. Global Knowledge Distillation
+python scripts/thesis_experiments.py \
+    --config config_thesis.yaml \
+    --experiments gkd_distilled
+
+# Все три сразу:
+python scripts/thesis_experiments.py \
+    --config config_thesis.yaml \
+    --experiments baseline ssl_distilled gkd_distilled
+
+# На конкретной GPU:
+CUDA_VISIBLE_DEVICES=0 python scripts/thesis_experiments.py \
+    --config config_thesis.yaml \
+    --experiments baseline ssl_distilled gkd_distilled

@@ -1,0 +1,40 @@
+{
+  "test_dataset": "/app/data/experiment_v3/datasets/mixed_full/test",
+  "num_test_images": 267,
+  "score_threshold": 0.25,
+  "metric_type": "COCO via torchmetrics.MeanAveragePrecision",
+  "results": {
+    "baseline": {
+      "mAP@50:95": 0.17023104429244995,
+      "mAP@50": 0.43312376737594604,
+      "mAP@75": 0.09528660029172897,
+      "AP_class_0": 0.1618,
+      "AP_class_1": 0.217,
+      "AP_class_2": 0.1358,
+      "AP_class_3": 0.1664,
+      "mAR@1": 0.19987721741199493,
+      "mAR@10": 0.3021273612976074,
+      "mAR@100": 0.3021273612976074,
+      "avg_inference_time_ms": 49.6,
+      "fps": 20.16,
+      "total_predictions": 974,
+      "total_ground_truth": 481
+    },
+    "pseudo": {
+      "mAP@50:95": 0.18705259263515472,
+      "mAP@50": 0.4865937829017639,
+      "mAP@75": 0.10452790558338165,
+      "AP_class_0": 0.1742,
+      "AP_class_1": 0.2298,
+      "AP_class_2": 0.1574,
+      "AP_class_3": 0.1868,
+      "mAR@1": 0.19989822804927826,
+      "mAR@10": 0.31722167134284973,
+      "mAR@100": 0.31794843077659607,
+      "avg_inference_time_ms": 37.45,
+      "fps": 26.7,
+      "total_predictions": 1156,
+      "total_ground_truth": 481
+    }
+  }
+}

@@ -1,0 +1,15 @@
+seed: 42
+img_size: [640, 640]
+num_classes: 4
+batch_size: 8
+epochs: 50
+lr: 0.0001
+weight_decay: 0.0001
+patience: 15
+
+teacher_weights: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
+mixed_full_path: "/app/data/experiment_v3/datasets/mixed_full"
+patches_dir: "/app/data/processed/defect_patches/images/train"
+output_dir: "/app/distillation/last_test/experiments"
+pseudo_count: 4000
+pseudo_conf: 0.7

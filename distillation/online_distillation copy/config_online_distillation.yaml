@@ -1,0 +1,76 @@
+experiment:
+  name: "online_distillation"
+  description: "Online Detection Distillation — учитель помогает ученику в реальном времени"
+  hypothesis: "Online дистилляция превосходит двухэтапные методы при меньшем времени обучения"
+
+teacher:
+  model: "dinov3/vits16-ltdetr-coco"
+  weights: "/app/data/experiment_v3/models/teacher/teacher_mixed_full_ssl/exported_models/exported_best.pt"
+
+online_distillation:
+  epochs: 50
+  batch_size: 8
+  lr: 0.001
+  weight_decay: 0.0005
+  patience: 20
+  
+  # Веса компонент лосса
+  detection_weight: 0.7
+  feature_distill_weight: 0.2
+  attention_distill_weight: 0.1
+  
+  # Feature distillation
+  feature_temperature: 3.0
+  normalize_features: true
+  
+  # Учитель помогает только первые N эпох
+  teacher_epochs: 40  # потом только GT
+
+students:
+  # faster_rcnn_r18_scratch:
+  #   backbone: "resnet18"
+  #   epochs: 50
+  #   batch: 8
+  #   lr: 0.001
+  #   weight_decay: 0.0005
+  #   type: "scratch"
+  #   patience: 20
+    
+  # faster_rcnn_r18_imagenet:
+  #   backbone: "resnet18"
+  #   epochs: 50
+  #   batch: 8
+  #   lr: 0.001
+  #   weight_decay: 0.0005
+  #   type: "imagenet_pretrained"
+  #   patience: 20
+    
+  faster_rcnn_r18_online_distilled:
+    backbone: "resnet18"
+    epochs: 50
+    batch: 8
+    lr: 0.001
+    weight_decay: 0.0005
+    type: "online_distilled"
+    patience: 20
+    description: "Online дистилляция — учитель помогает в реальном времени"
+
+detection:
+  data_path: "/app/data/experiment_v3/datasets/real_baseline"
+  num_classes: 4
+  img_size: [640, 640]
+  class_names:
+    0: "defect1"
+    1: "defect2"
+    2: "defect3"
+    3: "defect4"
+
+paths:
+  detection_output: "/app/online_distillation/detectors"
+  results_dir: "/app/online_distillation/reports"
+
+fps:
+  device: "cpu"
+  warmup: 50
+  iterations: 200
+  img_size: [640, 640]
